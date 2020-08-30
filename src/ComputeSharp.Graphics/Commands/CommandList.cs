@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using ComputeSharp.Exceptions;
 using ComputeSharp.Graphics.Buffers.Abstract;
 using ComputeSharp.Graphics.Commands.Abstract;
+using SharpGen.Runtime;
 using Vortice.Direct3D12;
 
 namespace ComputeSharp.Graphics.Commands
@@ -21,7 +23,15 @@ namespace ComputeSharp.Graphics.Commands
                 CommandListType.Direct => GraphicsDevice.DirectAllocatorPool.GetCommandAllocator(),
                 _ => throw new NotSupportedException($"Unsupported command list type with value {CommandListType}")
             };
-            NativeCommandList = GraphicsDevice.NativeDevice.CreateCommandList(CommandListType, CommandAllocator, null);
+
+            Result result = GraphicsDevice.NativeDevice.CreateCommandList(0, commandListType, CommandAllocator, null, out ID3D12GraphicsCommandList? nativeCommandList);
+
+            if (result.Failure)
+            {
+                throw new COMException("Failed to create the commands list", result.Code);
+            }
+
+            NativeCommandList = nativeCommandList!;
 
             // Set the heap descriptor if the command list is not for copy operations
             if (CommandListType != CommandListType.Copy)
@@ -78,7 +88,7 @@ namespace ComputeSharp.Graphics.Commands
         }
 
         /// <summary>
-        /// Executes the pending command list using the specified thread group values
+        /// Dispatches the pending shader using the specified thread group values
         /// </summary>
         /// <param name="threadGroupCountX">The number of thread groups to schedule for the X axis</param>
         /// <param name="threadGroupCountY">The number of thread groups to schedule for the Y axis</param>
@@ -89,18 +99,14 @@ namespace ComputeSharp.Graphics.Commands
         }
 
         /// <summary>
-        /// Executes the pending operations and waits for them to be completed
+        /// Executes the commands in the current commands list, and waits for completion
         /// </summary>
-        public void Flush()
+        public void ExecuteAndWaitForCompletion()
         {
-            Close();
+            NativeCommandList.Close();
+
             GraphicsDevice.ExecuteCommandList(this);
         }
-
-        /// <summary>
-        /// Closes the current native command list
-        /// </summary>
-        public void Close() => NativeCommandList.Close();
 
         /// <inheritdoc/>
         public override void Dispose()

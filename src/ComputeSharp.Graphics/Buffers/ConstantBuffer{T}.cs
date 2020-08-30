@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Buffers;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -30,12 +29,12 @@ namespace ComputeSharp
         /// Gets the right padded size for <typeparamref name="T"/> elements to store in the current instance
         /// </summary>
         [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetPaddedSize()
         {
             int size = Unsafe.SizeOf<T>();
 
-            // Equivalent to rounding up to nearest 256. We add 255 then trim off the bits which are less significant than 256
-            return (size + 255) & ~255;
+            return (size + 15) & ~15;
         }
 
         /// <summary>
@@ -48,53 +47,47 @@ namespace ComputeSharp
         /// <inheritdoc/>
         public override unsafe void GetData(Span<T> span, int offset, int count)
         {
+            using MappedResource resource = MapResource();
+
             if (IsPaddingPresent)
             {
-                Map();
+                ref T spanRef = ref MemoryMarshal.GetReference(span);
+                ref byte resourceRef = ref Unsafe.AsRef<byte>((void*)resource.Pointer);
 
-                ref var dest = ref MemoryMarshal.GetReference(span);
-                byte* untypedSrc = (byte*)MappedResource;
-                for (var i = offset; i < count; i++)
+                // Move to the initial ref
+                resourceRef = ref Unsafe.Add(ref resourceRef, offset * GetPaddedSize());
+
+                for (var i = 0; i < count; i++)
                 {
-                    // why is this exposed as an IntPtr? It should really be void*/T*/byte*
-                    Unsafe.Add(ref dest, i) = *(T*)&untypedSrc[i * GetPaddedSize()];
-                }
+                    ref byte targetRef = ref Unsafe.Add(ref resourceRef, i * GetPaddedSize());
 
-                Unmap();
+                    Unsafe.Add(ref spanRef, i) = Unsafe.As<byte, T>(ref targetRef);
+                }
             }
-            else
-            {
-                // Directly copy the data back if there is no padding
-                Map();
-                MemoryHelper.Copy(MappedResource, offset, span, 0, count);
-                Unmap();
-            }
+            else MemoryHelper.Copy(resource.Pointer, offset, span, 0, count);
         }
 
         /// <inheritdoc/>
-        public override unsafe void SetData(Span<T> span, int offset, int count)
+        public override unsafe void SetData(ReadOnlySpan<T> span, int offset, int count)
         {
+            using MappedResource resource = MapResource();
+
             if (IsPaddingPresent)
             {
-                Map();
+                ref T spanRef = ref MemoryMarshal.GetReference(span);
+                ref byte resourceRef = ref Unsafe.AsRef<byte>((void*)resource.Pointer);
 
-                ref var src = ref MemoryMarshal.GetReference(span);
-                byte* untypedDest = (byte*)MappedResource;
-                for (var i = offset; i < count; i++)
+                // Move to the initial offset
+                resourceRef = ref Unsafe.Add(ref resourceRef, offset * GetPaddedSize());
+
+                for (var i = 0; i < count; i++)
                 {
-                    // why is this exposed as an IntPtr? It should really be void*/T*/byte*
-                    *(T*)&untypedDest[i * GetPaddedSize()] = Unsafe.Add(ref src, i);
-                }
+                    ref byte targetRef = ref Unsafe.Add(ref resourceRef, i * GetPaddedSize());
 
-                Unmap();
+                    Unsafe.As<byte, T>(ref targetRef) = Unsafe.Add(ref spanRef, i);
+                }
             }
-            else
-            {
-                // Directly copy the input span if there is no padding
-                Map();
-                MemoryHelper.Copy(span, 0, MappedResource, offset, count);
-                Unmap();
-            }
+            else MemoryHelper.Copy(span, resource.Pointer, offset, count);
         }
 
         /// <inheritdoc/>
@@ -106,7 +99,7 @@ namespace ComputeSharp
                 using CommandList copyCommandList = new CommandList(GraphicsDevice, CommandListType.Copy);
 
                 copyCommandList.CopyBufferRegion(buffer, 0, this, 0, SizeInBytes);
-                copyCommandList.Flush();
+                copyCommandList.ExecuteAndWaitForCompletion();
             }
             else SetDataWithCpuBuffer(buffer);
         }
