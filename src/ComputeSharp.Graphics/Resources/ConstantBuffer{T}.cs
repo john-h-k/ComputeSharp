@@ -3,14 +3,12 @@ using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using ComputeSharp.Core.Helpers;
 using ComputeSharp.Exceptions;
-using ComputeSharp.Graphics.Extensions;
 using ComputeSharp.Graphics.Helpers;
 using ComputeSharp.Graphics.Resources.Enums;
 using ComputeSharp.Graphics.Resources.Interop;
 using ComputeSharp.Resources;
 using ComputeSharp.Resources.Debug;
 using Microsoft.Toolkit.Diagnostics;
-using FX = TerraFX.Interop.Windows;
 
 namespace ComputeSharp
 {
@@ -26,7 +24,7 @@ namespace ComputeSharp
         /// <summary>
         /// The alignment boundary for elements in a constant buffer.
         /// </summary>
-        private const int ElementAlignment = FX.D3D12_COMMONSHADER_CONSTANT_BUFFER_PARTIAL_UPDATE_EXTENTS_BYTE_ALIGNMENT;
+        private const int ElementAlignment = 16;
 
         /// <summary>
         /// Creates a new <see cref="ConstantBuffer{T}"/> instance with the specified parameters.
@@ -66,14 +64,14 @@ namespace ComputeSharp
             Guard.IsInRange(offset, 0, Length, nameof(offset));
             Guard.IsLessThanOrEqualTo(offset + size, Length, nameof(size));
 
-            using ID3D12ResourceMap resource = D3D12Resource->Map();
+            var pointer = this.device.Map(this.Resource);
 
             fixed (void* destinationPointer = &destination)
             {
                 if (IsPaddingPresent)
                 {
                     MemoryHelper.Copy<T>(
-                        resource.Pointer,
+                        pointer,
                         (uint)offset,
                         (uint)size,
                         (uint)GetPaddedSize(),
@@ -82,7 +80,7 @@ namespace ComputeSharp
                 else
                 {
                     MemoryHelper.Copy(
-                        resource.Pointer,
+                        pointer,
                         (uint)offset,
                         (uint)size,
                         (uint)sizeof(T),
@@ -101,7 +99,7 @@ namespace ComputeSharp
             Guard.IsInRange(offset, 0, Length, nameof(offset));
             Guard.IsLessThanOrEqualTo(offset + size, Length, nameof(size));
 
-            using ID3D12ResourceMap resource = D3D12Resource->Map();
+            var pointer = this.device.Map(this.Resource);
 
             fixed (void* sourcePointer = &source)
             {
@@ -109,7 +107,7 @@ namespace ComputeSharp
                 {
                     MemoryHelper.Copy<T>(
                         sourcePointer,
-                        resource.Pointer,
+                        pointer,
                         (uint)offset,
                         (uint)size,
                         (uint)GetPaddedSize(),
@@ -122,7 +120,7 @@ namespace ComputeSharp
                         (uint)offset,
                         (uint)size,
                         (uint)sizeof(T),
-                        resource.Pointer);
+                        pointer);
                 }
             }
         }
@@ -141,14 +139,15 @@ namespace ComputeSharp
 
             if (source is ConstantBuffer<T> buffer)
             {
-                using ID3D12ResourceMap sourceMap = buffer.D3D12Resource->Map();
-                using ID3D12ResourceMap destinationMap = D3D12Resource->Map();
+
+                var sourcePointer = this.device.Map(source.Resource);
+                var destinationPointer = this.device.Map(this.Resource);
 
                 if (IsPaddingPresent)
                 {
                     MemoryHelper.Copy<T>(
-                        sourceMap.Pointer,
-                        destinationMap.Pointer,
+                        sourcePointer,
+                        destinationPointer,
                         0,
                         (uint)source.Length,
                         (uint)GetPaddedSize(),
@@ -157,11 +156,11 @@ namespace ComputeSharp
                 else
                 {
                     MemoryHelper.Copy(
-                        sourceMap.Pointer,
+                        sourcePointer,
                         0,
                         (uint)source.Length,
                         (uint)sizeof(T),
-                        destinationMap.Pointer);
+                        destinationPointer);
                 }
             }
             else CopyFromWithCpuBuffer(source);

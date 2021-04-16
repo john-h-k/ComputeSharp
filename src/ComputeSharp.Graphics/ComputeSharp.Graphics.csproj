@@ -3,12 +3,13 @@
   <PropertyGroup>
     <TargetFrameworks>net5.0</TargetFrameworks>
     <OutputPath>bin\Release</OutputPath>
-    <DocumentationFile>ComputeSharp.Graphics.xml</DocumentationFile>
+    <!--<DocumentationFile>ComputeSharp.Graphics.xml</DocumentationFile>-->
     <Description>ComputeSharp.Graphics</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Toolkit.Diagnostics" Version="7.0.0-build.776" />
+    <ProjectReference Include="..\..\..\Voltium\sources\Voltium.Core\Voltium.Core.csproj" />
     <PackageReference Include="TerraFX.Interop.Windows" Version="10.0.19041-beta2" />
   </ItemGroup>
 

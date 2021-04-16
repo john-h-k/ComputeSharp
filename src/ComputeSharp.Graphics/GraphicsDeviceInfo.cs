@@ -1,4 +1,4 @@
-﻿using TerraFX.Interop;
+﻿
 using static TerraFX.Interop.DXGI_ADAPTER_FLAG;
 
 namespace ComputeSharp

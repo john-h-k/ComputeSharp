@@ -4,7 +4,9 @@ using ComputeSharp.Exceptions;
 using ComputeSharp.Graphics.Resources.Enums;
 using ComputeSharp.Resources;
 using ComputeSharp.Resources.Debug;
-using static TerraFX.Interop.D3D12_FORMAT_SUPPORT1;
+using Voltium.Core.Devices;
+using ResourceType = ComputeSharp.Graphics.Resources.Enums.ResourceType;
+
 
 #pragma warning disable CS0618
 
@@ -29,7 +31,7 @@ namespace ComputeSharp
         /// <param name="height">The height of the texture.</param>
         /// <param name="allocationMode">The allocation mode to use for the new resource.</param>
         internal ReadWriteTexture2D(GraphicsDevice device, int width, int height, AllocationMode allocationMode)
-            : base(device, width, height, ResourceType.ReadWrite, allocationMode, D3D12_FORMAT_SUPPORT1_TEXTURE2D | D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW)
+            : base(device, width, height, ResourceType.ReadWrite, allocationMode, FormatSupport.Tex2D | FormatSupport.TypedUnorderedAccess)
         {
         }
 

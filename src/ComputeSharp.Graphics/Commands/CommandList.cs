@@ -1,103 +1,271 @@
-﻿using System;
-using System.Diagnostics.Contracts;
+﻿using ComputeSharp.Resources;
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using ComputeSharp.Core.Extensions;
-using ComputeSharp.Graphics.Extensions;
-using TerraFX.Interop;
-using static TerraFX.Interop.D3D12_COMMAND_LIST_TYPE;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
+using Voltium.Core;
+using Voltium.Core.NativeApi;
 
 namespace ComputeSharp.Graphics.Commands
 {
-    /// <summary>
-    /// A command list to set and execute operations on the GPU.
-    /// </summary>
-    internal unsafe ref struct CommandList
+    internal unsafe struct CommandList
     {
-        /// <summary>
-        /// The <see cref="GraphicsDevice"/> instance associated with the current command list.
-        /// </summary>
-        private readonly GraphicsDevice device;
+        private ArrayBufferWriter<byte> _buffer;
+        private PipelineHandle _first;
 
-        /// <summary>
-        /// The command list type being used by the current instance.
-        /// </summary>
-        private readonly D3D12_COMMAND_LIST_TYPE d3D12CommandListType;
+        public static CommandList Create()
+            => new CommandList() { _buffer = new ArrayBufferWriter<byte>(64) };
 
-        /// <summary>
-        /// The <see cref="ID3D12CommandAllocator"/> object in use by the current instance.
-        /// </summary>
-        private ComPtr<ID3D12CommandAllocator> d3D12CommandAllocator;
-
-        /// <summary>
-        /// The <see cref="ID3D12GraphicsCommandList"/> object in use by the current instance.
-        /// </summary>
-        private ComPtr<ID3D12GraphicsCommandList> d3D12GraphicsCommandList;
-
-        /// <summary>
-        /// Creates a new <see cref="CommandList"/> instance with the specified parameters.
-        /// </summary>
-        /// <param name="device">The target <see cref="GraphicsDevice"/> instance to use.</param>
-        /// <param name="d3D12CommandListType">The type of command list to create.</param>
-        public CommandList(GraphicsDevice device, D3D12_COMMAND_LIST_TYPE d3D12CommandListType)
+        public void CopyBuffer(BufferHandle source, BufferHandle dest, uint length)
+            => CopyBuffer(source, 0, dest, 0, length);
+        public void CopyBuffer(BufferHandle source, uint srcOffset, BufferHandle dest, uint destOffset, uint length)
         {
-            this.device = device;
-            this.d3D12CommandListType = d3D12CommandListType;
-            this.d3D12CommandAllocator = device.GetCommandAllocator(d3D12CommandListType);
-            this.d3D12GraphicsCommandList = device.D3D12Device->CreateCommandList(d3D12CommandListType, this.d3D12CommandAllocator);
+            var span = _buffer.GetSpan(sizeof(CommandBufferCopy));
 
-            // Set the heap descriptor if the command list is not for copy operations
-            if (d3D12CommandListType is not D3D12_COMMAND_LIST_TYPE_COPY)
+            ref var cmd = ref Unsafe.As<byte, CommandBufferCopy>(ref span[0]);
+
+            cmd.Source = source;
+            cmd.Dest = dest;
+            cmd.SourceOffset = srcOffset;
+            cmd.DestOffset = destOffset;
+            cmd.Length = length;
+
+            _buffer.Advance(sizeof(CommandBufferCopy));
+        }
+
+        public void ResourceTransition(TextureHandle texture, ResourceState before, ResourceState after)
+        {
+            var size = sizeof(CommandTransitions) + sizeof(ResourceTransitionBarrier);
+            var span = _buffer.GetSpan(size);
+
+            ref var cmd = ref Unsafe.As<byte, CommandTransitions>(ref span[0]);
+            ref var barrier = ref Unsafe.As<byte, ResourceTransitionBarrier>(ref Unsafe.Add(ref span[0], sizeof(CommandTransitions)));
+
+            cmd.Count = 1;
+            barrier.Resource = texture;
+            barrier.Subresource = uint.MaxValue;
+            barrier.Before = before;
+            barrier.After = after;
+
+            _buffer.Advance(size);
+        }
+
+        public void CopyBufferToTexture(
+            DataFormat format,
+            BufferHandle source,
+            uint offset,
+            TextureHandle dest,
+            in TextureFootprint footprint,
+            uint subresource,
+            uint destX,
+            uint destY,
+            uint destZ,
+            uint sourceX,
+            uint sourceY,
+            uint sourceZ)
+        {
+            var span = _buffer.GetSpan(sizeof(CommandBufferToTextureCopy) + sizeof(Box));
+
+            ref var cmd = ref Unsafe.As<byte, CommandBufferToTextureCopy>(ref span[0]);
+            ref var box = ref Unsafe.As<CommandBufferToTextureCopy, Box>(ref Unsafe.Add(ref cmd, 1));
+
+            cmd.Source = source;
+            cmd.Dest = dest;
+            cmd.SourceOffset = offset;
+            cmd.SourceFormat = format;
+            cmd.DestSubresource = subresource;
+            cmd.SourceWidth = footprint.Width;
+            cmd.SourceHeight = footprint.Height;
+            cmd.SourceDepth = footprint.Depth;
+            cmd.SourceRowPitch = footprint.RowPitch;
+            cmd.DestX = destX;
+            cmd.DestY = destY;
+            cmd.DestZ = destZ;
+            cmd.HasBox = true;
+
+            box.Left = sourceX;
+            box.Top = sourceY;
+            box.Front = sourceZ;
+            box.Right = sourceX + footprint.Width;
+            box.Bottom = sourceY + footprint.Height;
+            box.Back = sourceZ + footprint.Depth;
+
+            _buffer.Advance(sizeof(CommandBufferToTextureCopy) + sizeof(Box));
+        }
+
+        public void CopyBufferToTexture(
+            DataFormat format,
+            BufferHandle source,
+            uint offset,
+            TextureHandle dest, 
+            in TextureFootprint footprint, 
+            uint subresource,
+            uint destX = 0,
+            uint destY = 0,
+            uint destZ = 0)
+        {
+            var span = _buffer.GetSpan(sizeof(CommandBufferToTextureCopy));
+
+            ref var cmd = ref Unsafe.As<byte, CommandBufferToTextureCopy>(ref span[0]);
+
+            cmd.Source = source;
+            cmd.Dest = dest;
+            cmd.SourceOffset = offset;
+            cmd.SourceFormat = format;
+            cmd.DestSubresource = subresource;
+            cmd.SourceWidth = footprint.Width;
+            cmd.SourceHeight = footprint.Height;
+            cmd.SourceDepth = footprint.Depth;
+            cmd.SourceRowPitch = footprint.RowPitch;
+            cmd.DestX = destX;
+            cmd.DestY = destY;
+            cmd.DestZ = destZ;
+
+            _buffer.Advance(sizeof(CommandBufferToTextureCopy));
+        }
+
+        public void CopyTextureToBuffer(
+           DataFormat format,
+           TextureHandle source, 
+           uint subresource,
+           BufferHandle dest,
+           uint offset,
+           in TextureFootprint footprint,
+           uint destX,
+           uint destY,
+           uint destZ,
+           uint sourceX,
+           uint sourceY,
+           uint sourceZ)
+        {
+            var span = _buffer.GetSpan(sizeof(CommandTextureToBufferCopy) + sizeof(Box));
+
+            ref var cmd = ref Unsafe.As<byte, CommandTextureToBufferCopy>(ref span[0]);
+            ref var box = ref Unsafe.As<CommandTextureToBufferCopy, Box>(ref Unsafe.Add(ref cmd, 1));
+
+            cmd.Source = source;
+            cmd.Dest = dest;
+            cmd.DestOffset = offset;
+            cmd.SourceFormat = format;
+            cmd.SourceSubresource = subresource;
+            cmd.DestWidth = footprint.Width;
+            cmd.DestHeight = footprint.Height;
+            cmd.DestDepth = footprint.Depth;
+            cmd.DestRowPitch = footprint.RowPitch;
+            cmd.DestX = destX;
+            cmd.DestY = destY;
+            cmd.DestZ = destZ;
+            cmd.HasBox = true;
+
+            box.Left = sourceX;
+            box.Top = sourceY;
+            box.Front = sourceZ;
+            box.Right = sourceX + footprint.Width;
+            box.Bottom = sourceY + footprint.Height;
+            box.Back = sourceZ + footprint.Depth;
+
+            _buffer.Advance(sizeof(CommandTextureToBufferCopy) + sizeof(Box));
+        }
+
+        public void CopyTextureToBuffer(
+           DataFormat format,
+           TextureHandle source,
+           uint subresource,
+           BufferHandle dest,
+           uint offset,
+           in TextureFootprint footprint,
+           uint destX = 0,
+           uint destY = 0,
+           uint destZ = 0)
+        {
+            var span = _buffer.GetSpan(sizeof(CommandTextureToBufferCopy) + sizeof(Box));
+
+            ref var cmd = ref Unsafe.As<byte, CommandTextureToBufferCopy>(ref span[0]);
+            ref var box = ref Unsafe.As<CommandTextureToBufferCopy, Box>(ref Unsafe.Add(ref cmd, 1));
+
+            cmd.Source = source;
+            cmd.Dest = dest;
+            cmd.DestOffset = offset;
+            cmd.SourceFormat = format;
+            cmd.SourceSubresource = subresource;
+            cmd.DestWidth = footprint.Width;
+            cmd.DestHeight = footprint.Height;
+            cmd.DestDepth = footprint.Depth;
+            cmd.DestRowPitch = footprint.RowPitch;
+            cmd.DestX = destX;
+            cmd.DestY = destY;
+            cmd.DestZ = destZ;
+
+            _buffer.Advance(sizeof(CommandTextureToBufferCopy));
+        }
+
+        public void SetPipeline(PipelineHandle handle)
+        {
+            if (_first == default)
             {
-                device.SetDescriptorHeapForCommandList(this.d3D12GraphicsCommandList);
+                _first = handle;
             }
+
+            var span = _buffer.GetSpan(sizeof(CommandSetPipeline));
+
+            ref var cmd = ref Unsafe.As<byte, CommandSetPipeline>(ref span[0]);
+
+            cmd.Pipeline = handle;
+
+            _buffer.Advance(sizeof(CommandSetPipeline));
         }
 
-        /// <summary>
-        /// Gets the command list type being used by the current instance.
-        /// </summary>
-        public readonly D3D12_COMMAND_LIST_TYPE D3D12CommandListType => this.d3D12CommandListType;
-
-        /// <summary>
-        /// Gets the <see cref="ID3D12GraphicsCommandList"/> object in use by the current instance.
-        /// </summary>
-        public readonly ID3D12GraphicsCommandList* D3D12GraphicsCommandList => this.d3D12GraphicsCommandList.Get();
-
-        /// <summary>
-        /// Detaches the <see cref="ID3D12CommandAllocator"/> object in use by the current instance.
-        /// </summary>
-        /// <returns>The <see cref="ID3D12CommandAllocator"/> object in use, with ownership.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComPtr<ID3D12CommandAllocator> DetachD3D12CommandAllocator()
+        public void SetConstants(uint paramIndex, ReadOnlySpan<uint> data)
         {
-            return this.d3D12CommandAllocator.Move();
+            var size = sizeof(CommandBind32BitConstants) + sizeof(uint) * data.Length;
+            var span = _buffer.GetSpan(size);
+
+            ref var cmd = ref Unsafe.As<byte, CommandBind32BitConstants>(ref span[0]);
+            ref var constants = ref Unsafe.As<byte, uint>(ref Unsafe.Add(ref span[0], sizeof(CommandBind32BitConstants)));
+
+            cmd.BindPoint = BindPoint.Compute;
+            cmd.ParameterIndex = paramIndex;
+            cmd.Num32BitValues = (uint)data.Length;
+
+            data.CopyTo(MemoryMarshal.CreateSpan(ref constants, data.Length));
+
+            _buffer.Advance(size);
         }
 
-        /// <summary>
-        /// Gets a pointer to the <see cref="ID3D12CommandList"/> object in use by the current instance.
-        /// </summary>
-        /// <returns>A double pointer to the current <see cref="ID3D12CommandList"/> object to execute.</returns>
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly ID3D12CommandList** GetD3D12CommandListAddressOf()
+        public void SetResources(uint paramIndex, ReadOnlySpan<DescriptorSetHandle> resources)
         {
-            return (ID3D12CommandList**)this.d3D12GraphicsCommandList.GetAddressOf();
+            var size = sizeof(CommandBindDescriptors) + sizeof(DescriptorSetHandle) * resources.Length;
+            var span = _buffer.GetSpan(size);
+
+            ref var cmd = ref Unsafe.As<byte, CommandBindDescriptors>(ref span[0]);
+            ref var descriptors = ref Unsafe.As<byte, DescriptorSetHandle>(ref Unsafe.Add(ref span[0], sizeof(CommandBindDescriptors)));
+
+            cmd.BindPoint = BindPoint.Compute;
+            cmd.FirstSetIndex = paramIndex;
+            cmd.SetCount = (uint)resources.Length;
+
+            resources.CopyTo(MemoryMarshal.CreateSpan(ref descriptors, resources.Length));
+
+            _buffer.Advance(size);
         }
 
-        /// <summary>
-        /// Executes the commands in the current commands list, and waits for completion.
-        /// </summary>
-        public void ExecuteAndWaitForCompletion()
+        public void Dispatch(uint x, uint y, uint z)
         {
-            this.d3D12GraphicsCommandList.Get()->Close();
+            var span = _buffer.GetSpan(sizeof(CommandDispatch));
 
-            this.device.ExecuteCommandList(ref this);
+            ref var cmd = ref Unsafe.As<byte, CommandDispatch>(ref span[0]);
+
+            cmd.X = x;
+            cmd.Y = y;
+            cmd.Z = z;
+
+            _buffer.Advance(sizeof(CommandDispatch));
         }
 
-        /// <inheritdoc cref="IDisposable.Dispose"/>
-        public void Dispose()
-        {
-            this.d3D12CommandAllocator.Dispose();
-            this.d3D12GraphicsCommandList.Dispose();
-        }
+        public CommandBuffer Buffer => new CommandBuffer { Buffer = _buffer.WrittenMemory, FirstPipeline = _first };
     }
 }

@@ -36,6 +36,14 @@ namespace ComputeSharp.Resources.Views
         }
 
         /// <summary>
+        /// Throws an <see cref="ArgumentOutOfRangeException"/> when more than one parameter are invalid.
+        /// </summary>
+        public static T ThrowArgumentException<T>()
+        {
+            throw new ArgumentException("One or more input parameters were invalid");
+        }
+
+        /// <summary>
         /// Throws an <see cref="ArgumentOutOfRangeException"/> when the "row" parameter is invalid.
         /// </summary>
         public static void ThrowArgumentOutOfRangeExceptionForRow()

@@ -34,7 +34,8 @@ namespace ComputeSharp.Interop
         /// </returns>
         public static int TryGetID3D12Device(GraphicsDevice device, Guid* riid, void** ppvObject)
         {
-            return device.D3D12Device->QueryInterface(riid, ppvObject);
+            throw new PlatformNotSupportedException();
+            //return device.D3D12Device->QueryInterface(riid, ppvObject);
         }
 
         /// <summary>
@@ -52,7 +53,8 @@ namespace ComputeSharp.Interop
         public static int TryGetID3D12Resource<T>(Buffer<T> buffer, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            return buffer.D3D12Resource->QueryInterface(riid, ppvObject);
+            throw new PlatformNotSupportedException();
+            //return buffer.D3D12Resource->QueryInterface(riid, ppvObject);
         }
 
         /// <summary>
@@ -70,7 +72,8 @@ namespace ComputeSharp.Interop
         public static int TryGetID3D12Resource<T>(Texture2D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            return texture.D3D12Resource->QueryInterface(riid, ppvObject);
+            throw new PlatformNotSupportedException();
+            //return texture.D3D12Resource->QueryInterface(riid, ppvObject);
         }
 
         /// <summary>
@@ -88,7 +91,8 @@ namespace ComputeSharp.Interop
         public static int TryGetID3D12Resource<T>(Texture3D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            return texture.D3D12Resource->QueryInterface(riid, ppvObject);
+            throw new PlatformNotSupportedException();
+            //return texture.D3D12Resource->QueryInterface(riid, ppvObject);
         }
 
         /// <summary>
@@ -106,7 +110,8 @@ namespace ComputeSharp.Interop
         public static int TryGetID3D12Resource<T>(TransferBuffer<T> buffer, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            return buffer.D3D12Resource->QueryInterface(riid, ppvObject);
+            throw new PlatformNotSupportedException();
+            //return buffer.D3D12Resource->QueryInterface(riid, ppvObject);
         }
 
         /// <summary>
@@ -124,7 +129,8 @@ namespace ComputeSharp.Interop
         public static int TryGetID3D12Resource<T>(TransferTexture2D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            return texture.D3D12Resource->QueryInterface(riid, ppvObject);
+            throw new PlatformNotSupportedException();
+            //return texture.D3D12Resource->QueryInterface(riid, ppvObject);
         }
 
         /// <summary>
@@ -142,7 +148,8 @@ namespace ComputeSharp.Interop
         public static int TryGetID3D12Resource<T>(TransferTexture3D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            return texture.D3D12Resource->QueryInterface(riid, ppvObject);
+            throw new PlatformNotSupportedException();
+            //return texture.D3D12Resource->QueryInterface(riid, ppvObject);
         }
     }
 }

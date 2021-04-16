@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ComputeSharp.Resources;
 using Microsoft.Toolkit.Diagnostics;
-using TerraFX.Interop;
+using Voltium.Core.NativeApi;
 
 namespace ComputeSharp.__Internals
 {
@@ -24,7 +24,7 @@ namespace ComputeSharp.__Internals
             /// </summary>
             /// <param name="device">The target <see cref="GraphicsDevice"/> instance in use.</param>
             /// <returns>The GPU descriptor handle for the resource.</returns> 
-            D3D12_GPU_DESCRIPTOR_HANDLE ValidateAndGetGpuDescriptorHandle(GraphicsDevice device);
+            DescriptorSetHandle ValidateAndGetDescriptorSetHandle(GraphicsDevice device);
         }
 
         /// <summary>
@@ -37,13 +37,13 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong ValidateAndGetGpuDescriptorHandle<T>(Buffer<T> buffer, GraphicsDevice device)
+        public static DescriptorSetHandle ValidateAndGetDescriptorSetHandle<T>(Buffer<T> buffer, GraphicsDevice device)
             where T : unmanaged
         {
             buffer.ThrowIfDisposed();
             buffer.ThrowIfDeviceMismatch(device);
 
-            return Unsafe.As<D3D12_GPU_DESCRIPTOR_HANDLE, ulong>(ref Unsafe.AsRef(in buffer.D3D12GpuDescriptorHandle));
+            return buffer.Descriptor;
         }
 
         /// <summary>
@@ -56,13 +56,13 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong ValidateAndGetGpuDescriptorHandle<T>(ReadOnlyTexture2D<T> texture, GraphicsDevice device)
+        public static DescriptorSetHandle ValidateAndGetDescriptorSetHandle<T>(ReadOnlyTexture2D<T> texture, GraphicsDevice device)
             where T : unmanaged
         {
             texture.ThrowIfDisposed();
             texture.ThrowIfDeviceMismatch(device);
 
-            return Unsafe.As<D3D12_GPU_DESCRIPTOR_HANDLE, ulong>(ref Unsafe.AsRef(in texture.D3D12GpuDescriptorHandle));
+            return texture.Descriptor;
         }
 
         /// <summary>
@@ -75,13 +75,13 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong ValidateAndGetGpuDescriptorHandle<T>(ReadWriteTexture2D<T> texture, GraphicsDevice device)
+        public static DescriptorSetHandle ValidateAndGetDescriptorSetHandle<T>(ReadWriteTexture2D<T> texture, GraphicsDevice device)
             where T : unmanaged
         {
             texture.ThrowIfDisposed();
             texture.ThrowIfDeviceMismatch(device);
 
-            return Unsafe.As<D3D12_GPU_DESCRIPTOR_HANDLE, ulong>(ref Unsafe.AsRef(in texture.D3D12GpuDescriptorHandle));
+            return texture.Descriptor;
         }
 
         /// <summary>
@@ -94,17 +94,15 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ulong ValidateAndGetGpuDescriptorHandle<TPixel>(IReadOnlyTexture2D<TPixel> texture, GraphicsDevice device)
+        public static unsafe DescriptorSetHandle ValidateAndGetDescriptorSetHandle<TPixel>(IReadOnlyTexture2D<TPixel> texture, GraphicsDevice device)
             where TPixel : unmanaged
         {
             if (texture is IGraphicsResource resource)
             {
-                D3D12_GPU_DESCRIPTOR_HANDLE d3D12GpuDescriptorHandle = resource.ValidateAndGetGpuDescriptorHandle(device);
-
-                return *(ulong*)&d3D12GpuDescriptorHandle;
+                return resource.ValidateAndGetDescriptorSetHandle(device);
             }
 
-            return ThrowHelper.ThrowArgumentException<ulong>("The input texture is not a valid instance");
+            return ThrowHelper.ThrowArgumentException<DescriptorSetHandle>("The input texture is not a valid instance");
         }
 
         /// <summary>
@@ -117,17 +115,15 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ulong ValidateAndGetGpuDescriptorHandle<TPixel>(IReadWriteTexture2D<TPixel> texture, GraphicsDevice device)
+        public static unsafe DescriptorSetHandle ValidateAndGetDescriptorSetHandle<TPixel>(IReadWriteTexture2D<TPixel> texture, GraphicsDevice device)
             where TPixel : unmanaged
         {
             if (texture is IGraphicsResource resource)
             {
-                D3D12_GPU_DESCRIPTOR_HANDLE d3D12GpuDescriptorHandle = resource.ValidateAndGetGpuDescriptorHandle(device);
-
-                return *(ulong*)&d3D12GpuDescriptorHandle;
+                return resource.ValidateAndGetDescriptorSetHandle(device);
             }
 
-            return ThrowHelper.ThrowArgumentException<ulong>("The input texture is not a valid instance");
+            return ThrowHelper.ThrowArgumentException<DescriptorSetHandle>("The input texture is not a valid instance");
         }
 
         /// <summary>
@@ -140,13 +136,13 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong ValidateAndGetGpuDescriptorHandle<T>(ReadOnlyTexture3D<T> texture, GraphicsDevice device)
+        public static DescriptorSetHandle ValidateAndGetDescriptorSetHandle<T>(ReadOnlyTexture3D<T> texture, GraphicsDevice device)
             where T : unmanaged
         {
             texture.ThrowIfDisposed();
             texture.ThrowIfDeviceMismatch(device);
 
-            return Unsafe.As<D3D12_GPU_DESCRIPTOR_HANDLE, ulong>(ref Unsafe.AsRef(in texture.D3D12GpuDescriptorHandle));
+            return texture.Descriptor;
         }
 
         /// <summary>
@@ -159,13 +155,13 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong ValidateAndGetGpuDescriptorHandle<T>(ReadWriteTexture3D<T> texture, GraphicsDevice device)
+        public static DescriptorSetHandle ValidateAndGetDescriptorSetHandle<T>(ReadWriteTexture3D<T> texture, GraphicsDevice device)
             where T : unmanaged
         {
             texture.ThrowIfDisposed();
             texture.ThrowIfDeviceMismatch(device);
 
-            return Unsafe.As<D3D12_GPU_DESCRIPTOR_HANDLE, ulong>(ref Unsafe.AsRef(in texture.D3D12GpuDescriptorHandle));
+            return texture.Descriptor;
         }
 
         /// <summary>
@@ -178,17 +174,15 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ulong ValidateAndGetGpuDescriptorHandle<TPixel>(IReadOnlyTexture3D<TPixel> texture, GraphicsDevice device)
+        public static unsafe DescriptorSetHandle ValidateAndGetDescriptorSetHandle<TPixel>(IReadOnlyTexture3D<TPixel> texture, GraphicsDevice device)
             where TPixel : unmanaged
         {
             if (texture is IGraphicsResource resource)
             {
-                D3D12_GPU_DESCRIPTOR_HANDLE d3D12GpuDescriptorHandle = resource.ValidateAndGetGpuDescriptorHandle(device);
-
-                return *(ulong*)&d3D12GpuDescriptorHandle;
+                return resource.ValidateAndGetDescriptorSetHandle(device);
             }
 
-            return ThrowHelper.ThrowArgumentException<ulong>("The input texture is not a valid instance");
+            return ThrowHelper.ThrowArgumentException<DescriptorSetHandle>("The input texture is not a valid instance");
         }
 
         /// <summary>
@@ -201,17 +195,15 @@ namespace ComputeSharp.__Internals
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("This method is not intended to be called directly by user code")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ulong ValidateAndGetGpuDescriptorHandle<TPixel>(IReadWriteTexture3D<TPixel> texture, GraphicsDevice device)
+        public static unsafe DescriptorSetHandle ValidateAndGetDescriptorSetHandle<TPixel>(IReadWriteTexture3D<TPixel> texture, GraphicsDevice device)
             where TPixel : unmanaged
         {
             if (texture is IGraphicsResource resource)
             {
-                D3D12_GPU_DESCRIPTOR_HANDLE d3D12GpuDescriptorHandle = resource.ValidateAndGetGpuDescriptorHandle(device);
-
-                return *(ulong*)&d3D12GpuDescriptorHandle;
+                return resource.ValidateAndGetDescriptorSetHandle(device);
             }
 
-            return ThrowHelper.ThrowArgumentException<ulong>("The input texture is not a valid instance");
+            return ThrowHelper.ThrowArgumentException<DescriptorSetHandle>("The input texture is not a valid instance");
         }
     }
 }

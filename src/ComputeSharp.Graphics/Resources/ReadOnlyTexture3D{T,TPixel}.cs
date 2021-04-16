@@ -4,7 +4,9 @@ using ComputeSharp.Exceptions;
 using ComputeSharp.Graphics.Resources.Enums;
 using ComputeSharp.Resources;
 using ComputeSharp.Resources.Debug;
-using static TerraFX.Interop.D3D12_FORMAT_SUPPORT1;
+using Voltium.Core.Devices;
+using ResourceType = ComputeSharp.Graphics.Resources.Enums.ResourceType;
+
 
 #pragma warning disable CS0618
 
@@ -30,7 +32,7 @@ namespace ComputeSharp
         /// <param name="depth">The depth of the texture.</param>
         /// <param name="allocationMode">The allocation mode to use for the new resource.</param>
         internal ReadOnlyTexture3D(GraphicsDevice device, int width, int height, int depth, AllocationMode allocationMode)
-            : base(device, width, height, depth, ResourceType.ReadOnly, allocationMode, D3D12_FORMAT_SUPPORT1_TEXTURE3D)
+            : base(device, width, height, depth, ResourceType.ReadOnly, allocationMode, FormatSupport.Tex3D)
         {
         }
 

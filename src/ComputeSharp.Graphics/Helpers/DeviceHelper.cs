@@ -4,8 +4,8 @@ using System.Diagnostics.Contracts;
 using ComputeSharp.Core.Extensions;
 using Microsoft.Toolkit.Diagnostics;
 using TerraFX.Interop;
-using FX = TerraFX.Interop.Windows;
 using HRESULT = System.Int32;
+using FX = TerraFX.Interop.Windows;
 
 namespace ComputeSharp.Graphics.Helpers
 {
@@ -48,12 +48,12 @@ namespace ComputeSharp.Graphics.Helpers
         /// <exception cref="NotSupportedException">Thrown when a default device is not available.</exception>
         public static unsafe GraphicsDevice GetDefaultDevice()
         {
-            using ComPtr<ID3D12Device> d3D12Device = default;
+            using ComPtr<IDXGIAdapter1> d3D12Device = default;
 
             DXGI_ADAPTER_DESC1 dxgiDescription1;
 
-            if (TryGetDefaultDevice(d3D12Device.GetAddressOf(), &dxgiDescription1) ||
-                TryGetWarpDevice(d3D12Device.GetAddressOf(), &dxgiDescription1))
+            if (TryGetDefaultDevice(&d3D12Device, &dxgiDescription1) ||
+                TryGetWarpDevice(&d3D12Device, &dxgiDescription1))
             {
                 return GetOrCreateDevice(d3D12Device.Move(), &dxgiDescription1);
             }
@@ -64,10 +64,10 @@ namespace ComputeSharp.Graphics.Helpers
         /// <summary>
         /// Tries to check or create a default <see cref="ID3D12Device"/> object.
         /// </summary>
-        /// <param name="d3D12Device">A pointer to the <see cref="ID3D12Device"/> object to create, or <see langword="null"/>.</param>
+        /// <param name="pAdapter">A pointer to the <see cref="ID3D12Device"/> object to create, or <see langword="null"/>.</param>
         /// <param name="dxgiDescription1">A pointer to the <see cref="DXGI_ADAPTER_DESC1"/> value for the device found.</param>
         /// <returns>Whether a default device was found with the requested feature level.</returns>
-        private static unsafe bool TryGetDefaultDevice(ID3D12Device** d3D12Device, DXGI_ADAPTER_DESC1* dxgiDescription1)
+        private static unsafe bool TryGetDefaultDevice(ComPtr<IDXGIAdapter1>* pAdapter, DXGI_ADAPTER_DESC1* dxgiDescription1)
         {
             using ComPtr<IDXGIFactory4> dxgiFactory4 = default;
 
@@ -94,16 +94,8 @@ namespace ComputeSharp.Graphics.Helpers
 
                 if (dxgiDescription1->DedicatedVideoMemory == 0) continue;
 
-                HRESULT createDeviceResult = FX.D3D12CreateDevice(
-                    dxgiAdapter1.AsIUnknown().Get(),
-                    D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0,
-                    FX.__uuidof<ID3D12Device>(),
-                    (void**)d3D12Device);
-
-                if (FX.SUCCEEDED(createDeviceResult))
-                {
-                    return true;
-                }
+                dxgiAdapter1.Swap(pAdapter);
+                return true;
             }
         }
 
@@ -113,7 +105,7 @@ namespace ComputeSharp.Graphics.Helpers
         /// <param name="d3D12Device">A pointer to the <see cref="ID3D12Device"/> object to create, or <see langword="null"/>.</param>
         /// <param name="dxgiDescription1">A pointer to the <see cref="DXGI_ADAPTER_DESC1"/> value for the device found.</param>
         /// <returns>Whether a warp device was created successfully.</returns>
-        private static unsafe bool TryGetWarpDevice(ID3D12Device** d3D12Device, DXGI_ADAPTER_DESC1* dxgiDescription1)
+        private static unsafe bool TryGetWarpDevice(ComPtr<IDXGIAdapter1>* pAdapter, DXGI_ADAPTER_DESC1* dxgiDescription1)
         {
             using ComPtr<IDXGIFactory4> dxgiFactory4 = default;
 
@@ -127,13 +119,9 @@ namespace ComputeSharp.Graphics.Helpers
             
             dxgiAdapter1.Get()->GetDesc1(dxgiDescription1).Assert();
 
-            HRESULT createDeviceResult = FX.D3D12CreateDevice(
-                dxgiAdapter1.AsIUnknown().Get(),
-                D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0,
-                FX.__uuidof<ID3D12Device>(),
-                (void**)d3D12Device);
+            dxgiAdapter1.Swap(pAdapter);
 
-            return FX.SUCCEEDED(createDeviceResult);
+            return true;
         }
 
         /// <summary>

@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using ComputeSharp.__Internals;
 using ComputeSharp.Shaders.Translation.Models;
-using TerraFX.Interop;
+using Voltium.Core.NativeApi;
 
 #pragma warning disable CS0618
 
@@ -27,7 +27,7 @@ namespace ComputeSharp.Shaders.Translation
         /// </param>
         /// <param name="r1">A reference to the buffer to use to store all the captured value types.</param>
         /// <returns>The returned value indicates the total number of written bytes into <paramref name="r1"/>.</returns>
-        private delegate int DispatchDataLoader(GraphicsDevice device, in T shader, ref ulong r0, ref byte r1);
+        private delegate int DispatchDataLoader(GraphicsDevice device, in T shader, ref DescriptorSetHandle r0, ref byte r1);
 
         /// <summary>
         /// The number of captured graphics resources (buffers).
@@ -56,10 +56,10 @@ namespace ComputeSharp.Shaders.Translation
         public DispatchData GetDispatchData(GraphicsDevice device, in T shader, int x, int y, int z)
         {
             // Resources and variables buffers
-            ulong[] resources = ArrayPool<ulong>.Shared.Rent(this.totalResourceCount);
+            DescriptorSetHandle[] resources = ArrayPool<DescriptorSetHandle>.Shared.Rent(this.totalResourceCount);
             byte[] variables = ArrayPool<byte>.Shared.Rent(256);
 
-            ref ulong r0 = ref MemoryMarshal.GetArrayDataReference(resources);
+            ref DescriptorSetHandle r0 = ref MemoryMarshal.GetArrayDataReference(resources);
             ref byte r1 = ref MemoryMarshal.GetArrayDataReference(variables);
 
             // Set the x, y and z counters
@@ -70,7 +70,7 @@ namespace ComputeSharp.Shaders.Translation
             // Invoke the dynamic method to extract the captured data
             int totalVariablesByteSize = this.dispatchDataLoader!(device, in shader, ref r0, ref r1);
 
-            return new(resources, this.totalResourceCount, variables, totalVariablesByteSize);
+            return new(device.NativeDevice, resources, this.totalResourceCount, variables, totalVariablesByteSize);
         }
 
         /// <summary>
@@ -84,7 +84,7 @@ namespace ComputeSharp.Shaders.Translation
             MethodInfo method = type.GetMethod("LoadDispatchData", argumentTypes)!;
 
             // Extract the computed count of 32 bit root constants to load
-            D3D12Root32BitConstantsCount = ((ComputeRoot32BitConstantsAttribute)method.ReturnTypeCustomAttributes.GetCustomAttributes(false)[0]).Count;
+            Root32BitConstantsCount = ((ComputeRoot32BitConstantsAttribute)method.ReturnTypeCustomAttributes.GetCustomAttributes(false)[0]).Count;
 
             // Create a delegate from the generated shader data loader
             this.dispatchDataLoader = method.CreateDelegate<DispatchDataLoader>();

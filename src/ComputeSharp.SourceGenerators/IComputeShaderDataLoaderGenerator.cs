@@ -109,7 +109,7 @@ namespace ComputeSharp.SourceGenerators
                         Token(SyntaxKind.StaticKeyword)).AddParameterListParameters(
                         Parameter(Identifier("device")).WithType(IdentifierName("ComputeSharp.GraphicsDevice")),
                         Parameter(Identifier("shader")).WithModifiers(TokenList(Token(SyntaxKind.InKeyword))).WithType(shaderType),
-                        Parameter(Identifier("r0")).AddModifiers(Token(SyntaxKind.RefKeyword)).WithType(PredefinedType(Token(SyntaxKind.ULongKeyword))),
+                        Parameter(Identifier("r0")).AddModifiers(Token(SyntaxKind.RefKeyword)).WithType(IdentifierName("Voltium.Core.NativeApi.DescriptorSetHandle")),
                         Parameter(Identifier("r1")).AddModifiers(Token(SyntaxKind.RefKeyword)).WithType(PredefinedType(Token(SyntaxKind.ByteKeyword))))
                         .WithBody(block)))
                     .WithNamespaceKeyword(Token(TriviaList(Trivia(PragmaWarningDirectiveTrivia(Token(SyntaxKind.DisableKeyword), true))), SyntaxKind.NamespaceKeyword, TriviaList())))
@@ -154,7 +154,7 @@ namespace ComputeSharp.SourceGenerators
                         AssignmentExpression(
                             SyntaxKind.SimpleAssignmentExpression,
                             ParseExpression($"Unsafe.Add(ref r0, {resourceOffset++})"),
-                            ParseExpression($"GraphicsResourceHelper.ValidateAndGetGpuDescriptorHandle(shader.{fieldSymbol.Name}, device)"))));
+                            ParseExpression($"GraphicsResourceHelper.ValidateAndGetDescriptorSetHandle(shader.{fieldSymbol.Name}, device)"))));
                 }
                 else if (HlslKnownTypes.IsScalarOrVectorType(typeName))
                 {

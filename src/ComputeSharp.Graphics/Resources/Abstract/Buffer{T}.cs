@@ -2,15 +2,50 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using ComputeSharp.Exceptions;
-using ComputeSharp.Graphics.Extensions;
+using ComputeSharp.Graphics.Resources.Enums;
 using ComputeSharp.Interop;
 using Microsoft.Toolkit.Diagnostics;
-using TerraFX.Interop;
-using FX = TerraFX.Interop.Windows;
+using Voltium.Core.Devices;
+using Voltium.Core.Memory;
+using Voltium.Core.NativeApi;
 using ResourceType = ComputeSharp.Graphics.Resources.Enums.ResourceType;
 
 namespace ComputeSharp.Resources
 {
+    internal static class INativeDeviceExtensions
+    {
+        public static DescriptorSetHandle CreateDescriptor(this INativeDevice device, BufferHandle buffer, ResourceType type)
+        {
+            var view = device.CreateViewSet(1);
+            var descriptor = device.CreateDescriptorSet(type switch
+            {
+                ResourceType.Constant => DescriptorType.ConstantBuffer,
+                ResourceType.ReadOnly => DescriptorType.StructuredBuffer,
+                ResourceType.ReadWrite => DescriptorType.WritableStructuredBuffer,
+                _ => 0
+            }, 1);
+            _ = device.CreateView(view, 0, buffer);
+            device.UpdateDescriptors(view, 0, descriptor, 0, 1);
+            device.DisposeViewSet(view);
+            return descriptor;
+        }
+
+        public static DescriptorSetHandle CreateDescriptor(this INativeDevice device, TextureHandle texture, ResourceType type)
+        {
+            var view = device.CreateViewSet(1);
+            var descriptor = device.CreateDescriptorSet(type switch
+            {
+                ResourceType.ReadOnly => DescriptorType.Texture,
+                ResourceType.ReadWrite => DescriptorType.WritableTexture,
+                _ => 0
+            }, 1);
+            _ = device.CreateView(view, 0, texture);
+            device.UpdateDescriptors(view, 0, descriptor, 0, 1);
+            device.DisposeViewSet(view);
+            return descriptor;
+        }
+    }
+
     /// <summary>
     /// A <see langword="class"/> representing a typed buffer stored on GPU memory.
     /// </summary>
@@ -19,19 +54,11 @@ namespace ComputeSharp.Resources
         where T : unmanaged
     {
         /// <summary>
-        /// The <see cref="ID3D12Resource"/> instance currently mapped.
+        /// The <see cref="BufferHandle"/> instance currently mapped.
         /// </summary>
-        private ComPtr<ID3D12Resource> d3D12Resource;
+        private BufferHandle resource;
 
-        /// <summary>
-        /// The <see cref="D3D12_CPU_DESCRIPTOR_HANDLE"/> instance for the current resource.
-        /// </summary>
-        private readonly D3D12_CPU_DESCRIPTOR_HANDLE D3D12CpuDescriptorHandle;
-
-        /// <summary>
-        /// The <see cref="D3D12_GPU_DESCRIPTOR_HANDLE"/> instance for the current resource.
-        /// </summary>
-        internal readonly D3D12_GPU_DESCRIPTOR_HANDLE D3D12GpuDescriptorHandle;
+        private DescriptorSetHandle descriptor;
 
         /// <summary>
         /// The size in bytes of the current buffer (this value is never negative).
@@ -46,13 +73,13 @@ namespace ComputeSharp.Resources
         /// <param name="elementSizeInBytes">The size in bytes of each buffer item (including padding, if any).</param>
         /// <param name="resourceType">The resource type for the current buffer.</param>
         /// <param name="allocationMode">The allocation mode to use for the new resource.</param>
-        private protected Buffer(GraphicsDevice device, int length, uint elementSizeInBytes, ResourceType resourceType, AllocationMode allocationMode)
+        private protected Buffer(GraphicsDevice device, int length, uint elementSizeInBytes, ResourceType resourceType, AllocationMode allocationMode) : base(device.NativeDevice)
         {
             device.ThrowIfDisposed();
 
             if (resourceType == ResourceType.Constant)
             {
-                Guard.IsBetweenOrEqualTo(length, 1, FX.D3D12_REQ_CONSTANT_BUFFER_ELEMENT_COUNT, nameof(length));
+                Guard.IsBetweenOrEqualTo(length, 1, GraphicsDevice.MaxConstantBufferElementCount, nameof(length));
             }
             else
             {
@@ -64,24 +91,10 @@ namespace ComputeSharp.Resources
             GraphicsDevice = device;
             Length = length;
 
-            this.d3D12Resource = device.D3D12Device->CreateCommittedResource(resourceType, allocationMode, (ulong)SizeInBytes, device.IsCacheCoherentUMA);
+            var desc = new BufferDesc { Length = (ulong)SizeInBytes, ResourceFlags = resourceType.AsResourceFlags() };
 
-            device.RentShaderResourceViewDescriptorHandles(out D3D12CpuDescriptorHandle, out D3D12GpuDescriptorHandle);
-
-            switch (resourceType)
-            {
-                case ResourceType.Constant:
-                    device.D3D12Device->CreateConstantBufferView(this.d3D12Resource.Get(), SizeInBytes, D3D12CpuDescriptorHandle);
-                    break;
-                case ResourceType.ReadOnly:
-                    device.D3D12Device->CreateShaderResourceView(this.d3D12Resource.Get(), (uint)length, elementSizeInBytes, D3D12CpuDescriptorHandle);
-                    break;
-                case ResourceType.ReadWrite:
-                    device.D3D12Device->CreateUnorderedAccessView(this.d3D12Resource.Get(), (uint)length, elementSizeInBytes, D3D12CpuDescriptorHandle);
-                    break;
-            }
-
-            this.d3D12Resource.Get()->SetName(this);
+            this.resource = device.NativeDevice.AllocateBuffer(desc, resourceType.AsMemoryAccess());
+            this.descriptor = device.NativeDevice.CreateDescriptor(this.resource, resourceType);
         }
 
         /// <summary>
@@ -104,9 +117,14 @@ namespace ComputeSharp.Resources
         }
 
         /// <summary>
-        /// Gets the <see cref="ID3D12Resource"/> instance currently mapped.
+        /// Gets the <see cref="BufferHandle"/> instance currently mapped.
         /// </summary>
-        internal ID3D12Resource* D3D12Resource => this.d3D12Resource;
+        internal BufferHandle Resource => this.resource;
+
+        /// <summary>
+        /// Gets the <see cref="DescriptorSetHandle"/> instance currently mapped.
+        /// </summary>
+        internal DescriptorSetHandle Descriptor => this.descriptor;
 
         /// <summary>
         /// Reads the contents of the specified range from the current <see cref="Buffer{T}"/> instance and writes them into a target memory area.
@@ -155,12 +173,7 @@ namespace ComputeSharp.Resources
         /// <inheritdoc/>
         protected override bool OnDispose()
         {
-            this.d3D12Resource.Dispose();
-
-            if (GraphicsDevice?.IsDisposed == false)
-            {
-                GraphicsDevice.ReturnShaderResourceViewDescriptorHandles(D3D12CpuDescriptorHandle, D3D12GpuDescriptorHandle);
-            }
+            this?.NativeDevice.DisposeBuffer(this.resource);
 
             return true;
         }

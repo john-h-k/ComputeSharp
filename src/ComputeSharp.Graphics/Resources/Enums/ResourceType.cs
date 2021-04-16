@@ -1,5 +1,35 @@
-﻿namespace ComputeSharp.Graphics.Resources.Enums
+﻿using ComputeSharp.Resources.Views;
+using Voltium.Core;
+using Voltium.Core.Memory;
+
+namespace ComputeSharp.Graphics.Resources.Enums
 {
+    internal static class ResourceTypeExtensions
+    {
+        public static DescriptorRangeType AsDescriptorType(this ResourceType type)
+            => type switch
+            {
+                ResourceType.Constant or ResourceType.Upload or ResourceType.ReadBack => DescriptorRangeType.ConstantBufferView,
+                ResourceType.ReadOnly => DescriptorRangeType.ShaderResourceView,
+                ResourceType.ReadWrite => DescriptorRangeType.UnorderedAccessView,
+                _ => ThrowHelper.ThrowArgumentException<DescriptorRangeType>()
+            };
+
+        public static ResourceFlags AsResourceFlags(this ResourceType type)
+            => type == ResourceType.ReadWrite ? ResourceFlags.AllowUnorderedAccess : ResourceFlags.None;
+        public static ResourceState InitialResourceState(this ResourceType type)
+            => type == ResourceType.ReadWrite ? ResourceState.UnorderedAccess : ResourceState.Common;
+
+        public static MemoryAccess AsMemoryAccess(this ResourceType type)
+            => type switch
+            {
+                ResourceType.Constant or ResourceType.Upload => MemoryAccess.CpuUpload,
+                ResourceType.ReadOnly or ResourceType.ReadWrite => MemoryAccess.GpuOnly,
+                ResourceType.ReadBack => MemoryAccess.CpuReadback,
+                _ => ThrowHelper.ThrowArgumentException<MemoryAccess>()
+            };
+    }
+
     /// <summary>
     /// An <see langword="enum"/> that indicates the type of a given HLSL resource.
     /// </summary>

@@ -1,4 +1,6 @@
-﻿using System;
+﻿#if REFLECTION
+
+using System;
 using System.Runtime.CompilerServices;
 using ComputeSharp.Core.Extensions;
 using ComputeSharp.Shaders.Renderer;
@@ -101,3 +103,4 @@ namespace ComputeSharp.Interop
         }
     }
 }
+#endif

@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using ComputeSharp.Core.Extensions;
 using ComputeSharp.Graphics.Commands;
-using ComputeSharp.Graphics.Extensions;
-using ComputeSharp.Shaders.Extensions;
 using ComputeSharp.Shaders.Renderer;
 using ComputeSharp.Shaders.Translation;
 using ComputeSharp.Shaders.Translation.Interop;
 using ComputeSharp.Shaders.Translation.Models;
 using Microsoft.Toolkit.Diagnostics;
-using TerraFX.Interop;
-using FX = TerraFX.Interop.Windows;
-using static TerraFX.Interop.D3D12_COMMAND_LIST_TYPE;
+using Voltium.Core;
+using System.Buffers;
+using ComputeSharp.Graphics.Resources.Enums;
+using Voltium.Core.Devices;
+using Voltium.Core.Pipeline;
 
 namespace ComputeSharp.Shaders
 {
@@ -124,9 +124,9 @@ namespace ComputeSharp.Shaders
                 groupsY = Math.DivRem(y, threadsY, out int modY) + (modY == 0 ? 0 : 1),
                 groupsZ = Math.DivRem(z, threadsZ, out int modZ) + (modZ == 0 ? 0 : 1);
 
-            Guard.IsBetweenOrEqualTo(groupsX, 1, FX.D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION, nameof(groupsX));
-            Guard.IsBetweenOrEqualTo(groupsY, 1, FX.D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION, nameof(groupsX));
-            Guard.IsBetweenOrEqualTo(groupsZ, 1, FX.D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION, nameof(groupsX));
+            Guard.IsBetweenOrEqualTo(groupsX, 1, GraphicsDevice.MaxThreadGroupsPerDimension, nameof(groupsX));
+            Guard.IsBetweenOrEqualTo(groupsY, 1, GraphicsDevice.MaxThreadGroupsPerDimension, nameof(groupsX));
+            Guard.IsBetweenOrEqualTo(groupsZ, 1, GraphicsDevice.MaxThreadGroupsPerDimension, nameof(groupsX));
 
             // Create the shader key
             ShaderKey key = new(ShaderHashCodeProvider.GetHashCode(in shader), threadsX, threadsY, threadsZ);
@@ -151,29 +151,26 @@ namespace ComputeSharp.Shaders
                 }
             }
 
-            // Create the commands list and set the pipeline state
-            using CommandList commandList = new(device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
-
-            commandList.D3D12GraphicsCommandList->SetComputeRootSignature(pipelineData.D3D12RootSignature);
-            commandList.D3D12GraphicsCommandList->SetPipelineState(pipelineData.D3D12PipelineState);
+            var count = (uint)shaderData.Loader.Bindings.Length;
 
             // Extract the dispatch data for the shader invocation
             using DispatchData dispatchData = shaderData.Loader.GetDispatchData(device, in shader, x, y, z);
 
+            // Create the commands list
+            var commandList = CommandList.Create();
+
+            // Set the pipeline state
+            commandList.SetPipeline(pipelineData.Pipeline);
+
             // Initialize the loop targets and the captured values
-            commandList.D3D12GraphicsCommandList->SetComputeRoot32BitConstants(dispatchData.Variables);
-
-            ReadOnlySpan<D3D12_GPU_DESCRIPTOR_HANDLE> resources = dispatchData.Resources;
-
-            for (int i = 0; i < resources.Length; i++)
-            {
-                // Load the captured buffers
-                commandList.D3D12GraphicsCommandList->SetComputeRootDescriptorTable((uint)i + 1, resources[i]);
-            }
+            commandList.SetConstants(0, dispatchData.Variables);
+            // Load the captured buffers
+            commandList.SetResources(1, dispatchData.Resources);
 
             // Dispatch and wait for completion
-            commandList.D3D12GraphicsCommandList->Dispatch((uint)groupsX, (uint)groupsY, (uint)groupsZ);
-            commandList.ExecuteAndWaitForCompletion();
+            commandList.Dispatch((uint)groupsX, (uint)groupsY, (uint)groupsZ);
+
+            device.ExecuteCompute(commandList.Buffer).Block();
         }
 
         /// <summary>
@@ -185,7 +182,7 @@ namespace ComputeSharp.Shaders
         /// <param name="shader">The input <typeparamref name="T"/> instance representing the compute shader to run.</param>
         /// <param name="shaderData">The <see cref="CachedShader{T}"/> instance to return with the cached shader data.</param>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void LoadShader(int threadsX, int threadsY, int threadsZ, in T shader, out CachedShader<T> shaderData)
+        private static unsafe void LoadShader(int threadsX, int threadsY, int threadsZ, in T shader, out CachedShader<T> shaderData)
         {
             // Load the input shader
             ShaderLoader<T> shaderLoader = ShaderLoader<T>.Load(in shader);
@@ -209,10 +206,31 @@ namespace ComputeSharp.Shaders
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static unsafe void CreatePipelineData(GraphicsDevice device, in CachedShader<T> shaderData, out PipelineData pipelineData)
         {
-            using ComPtr<ID3D12RootSignature> d3D12RootSignature = device.D3D12Device->CreateRootSignature(shaderData.Loader.D3D12Root32BitConstantsCount, shaderData.Loader.D3D12DescriptorRanges1);
-            using ComPtr<ID3D12PipelineState> d3D12PipelineState = device.D3D12Device->CreateComputePipelineState(d3D12RootSignature.Get(), shaderData.Bytecode.D3D12ShaderBytecode);
+            var bindings = shaderData.Loader.Bindings;
+            var rootParams = ArrayPool<RootParameter>.Shared.Rent(1 + bindings.Length);
 
-            pipelineData = new PipelineData(d3D12RootSignature.Move(), d3D12PipelineState.Move());
+            rootParams[0] = RootParameter.CreateConstants((uint)shaderData.Loader.Root32BitConstantsCount, 0, 0);
+
+            for (int i = 0; i < bindings.Length; i++)
+            {
+                ref readonly var binding = ref bindings[i];
+                ref var param = ref rootParams[i + 1];
+
+                param = RootParameter.CreateDescriptorTable(binding.Type.AsDescriptorType(), binding.Register, 1, binding.Space);
+            }
+
+            var rootSig = device.NativeDevice.CreateRootSignature(rootParams, default, RootSignatureFlags.None);
+
+            var psoDesc = new NativeComputePipelineDesc
+            {
+                RootSignature = rootSig,
+                ComputeShader = shaderData.Bytecode.ShaderBytecode,
+                NodeMask = 0
+            };
+
+            var pipeline = device.NativeDevice.CreatePipeline(psoDesc);
+
+            pipelineData = new PipelineData(device.NativeDevice, pipeline);
 
             shaderData.CachedPipelines.Add(device, pipelineData);
         }
