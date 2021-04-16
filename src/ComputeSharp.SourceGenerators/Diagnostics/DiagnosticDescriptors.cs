@@ -89,9 +89,6 @@ namespace ComputeSharp.SourceGenerators.Diagnostics
 
         /// <summary>
         /// Gets a <see cref="DiagnosticDescriptor"/> for an invalid <see cref="ThreadIds"/> usage.
-        /// <para>
-        /// Format: <c>"The ThreadIds type is used in method {0} of type {1}"</c>.
-        /// </para>
         /// </summary>
         public static readonly DiagnosticDescriptor InvalidThreadIdsUsage = new(
             id: "CMPS0006",
@@ -105,9 +102,6 @@ namespace ComputeSharp.SourceGenerators.Diagnostics
 
         /// <summary>
         /// Gets a <see cref="DiagnosticDescriptor"/> for an invalid <see cref="GroupIds"/> usage.
-        /// <para>
-        /// Format: <c>"The GroupIds type is used in method {0} of type {1}"</c>.
-        /// </para>
         /// </summary>
         public static readonly DiagnosticDescriptor InvalidGroupIdsUsage = new(
             id: "CMPS0007",
@@ -121,9 +115,6 @@ namespace ComputeSharp.SourceGenerators.Diagnostics
 
         /// <summary>
         /// Gets a <see cref="DiagnosticDescriptor"/> for an invalid <see cref="GroupSize"/> usage.
-        /// <para>
-        /// Format: <c>"The GroupSize type is used in method {0} of type {1}"</c>.
-        /// </para>
         /// </summary>
         public static readonly DiagnosticDescriptor InvalidGroupSizeUsage = new(
             id: "CMPS0008",
@@ -136,19 +127,16 @@ namespace ComputeSharp.SourceGenerators.Diagnostics
             helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
 
         /// <summary>
-        /// Gets a <see cref="DiagnosticDescriptor"/> for an invalid <see cref="WarpIds"/> usage.
-        /// <para>
-        /// Format: <c>"The WarpIds type is used in method {0} of type {1}"</c>.
-        /// </para>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an invalid <see cref="GridIds"/> usage.
         /// </summary>
-        public static readonly DiagnosticDescriptor InvalidWarpIdsUsage = new(
+        public static readonly DiagnosticDescriptor InvalidGridIdsUsage = new(
             id: "CMPS0009",
-            title: "Invalid WarpIds usage",
-            messageFormat: "The WarpIds type can only be used within the main body of a compute shader",
+            title: "Invalid GridIds usage",
+            messageFormat: "The GridIds type can only be used within the main body of a compute shader",
             category: typeof(IComputeShader).FullName,
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true,
-            description: "The WarpIds type can only be used within the main body of a compute shader.",
+            description: "The GridIds type can only be used within the main body of a compute shader.",
             helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
 
         /// <summary>
@@ -506,6 +494,157 @@ namespace ComputeSharp.SourceGenerators.Diagnostics
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true,
             description: "String literal expressions cannot be used in a compute shader.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an internal error in <see cref="AutoConstructorGenerator"/>.
+        /// <para>
+        /// Format: <c>"The generator AutoConstructorGenerator failed to execute on type {0}, and its constructor might not be available"</c>.
+        /// </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor AutoConstructorGeneratorError = new(
+            id: "CMPS0037",
+            title: $"Internal error for {nameof(AutoConstructorGenerator)}",
+            messageFormat: $"The generator {nameof(AutoConstructorGenerator)} failed to execute on type {{0}}, and its constructor might not be available",
+            category: typeof(AutoConstructorGenerator).FullName,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: $"The {nameof(AutoConstructorGenerator)} generator encountered an error while processing a type, and its constructor might not be available. Please report this issue at https://github.com/Sergio0694/ComputeSharp/issues.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an internal error in <see cref="IComputeShaderDataLoaderGenerator"/>.
+        /// <para>
+        /// Format: <c>"The generator IComputeShaderDataLoaderGenerator failed to execute on type {0}, and trying to use that shader might result in a runtime crash"</c>.
+        /// </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor IComputeShaderDataLoaderGeneratorError = new(
+            id: "CMPS0038",
+            title: $"Internal error for {nameof(IComputeShaderDataLoaderGenerator)}",
+            messageFormat: $"The generator {nameof(IComputeShaderDataLoaderGenerator)} failed to execute on type {{0}}, and trying to use that shader might result in a runtime crash",
+            category: typeof(IComputeShaderDataLoaderGenerator).FullName,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: $"The {nameof(IComputeShaderDataLoaderGenerator)} generator encountered an error while processing a type, and trying to use that shader might result in a runtime crash. Please report this issue at https://github.com/Sergio0694/ComputeSharp/issues.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an internal error in <see cref="IComputeShaderHashCodeGenerator"/>.
+        /// <para>
+        /// Format: <c>"The generator IComputeShaderHashCodeGenerator failed to execute on type {0}, and trying to use that shader might result in a runtime crash"</c>.
+        /// </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor IComputeShaderHashCodeGeneratorError = new(
+            id: "CMPS0039",
+            title: $"Internal error for {nameof(IComputeShaderHashCodeGenerator)}",
+            messageFormat: $"The generator {nameof(IComputeShaderHashCodeGenerator)} failed to execute on type {{0}}, and trying to use that shader might result in a runtime crash",
+            category: typeof(IComputeShaderHashCodeGenerator).FullName,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: $"The {nameof(IComputeShaderHashCodeGenerator)} generator encountered an error while processing a type, and trying to use that shader might result in a runtime crash. Please report this issue at https://github.com/Sergio0694/ComputeSharp/issues.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an internal error in <see cref="IComputeShaderSourceGenerator"/>.
+        /// <para>
+        /// Format: <c>"The generator IComputeShaderSourceGenerator failed to execute on type {0}, and trying to use that shader might result in a runtime crash"</c>.
+        /// </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor IComputeShaderSourceGeneratorError = new(
+            id: "CMPS0040",
+            title: $"Internal error for {nameof(IComputeShaderSourceGenerator)}",
+            messageFormat: $"The generator {nameof(IComputeShaderSourceGenerator)} failed to execute on type {{0}}, and trying to use that shader might result in a runtime crash",
+            category: typeof(IComputeShaderSourceGenerator).FullName,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: $"The {nameof(IComputeShaderSourceGenerator)} generator encountered an error while processing a type, and trying to use that shader might result in a runtime crash. Please report this issue at https://github.com/Sergio0694/ComputeSharp/issues.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an internal error in <see cref="ShaderMethodSourceGenerator"/>.
+        /// <para>
+        /// Format: <c>"The generator ShaderMethodSourceGenerator failed to execute on method {0}, and using it in a shader might result in a runtime crash"</c>.
+        /// </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor ShaderMethodSourceGeneratorError = new(
+            id: "CMPS0041",
+            title: $"Internal error for {nameof(ShaderMethodSourceGenerator)}",
+            messageFormat: $"The generator {nameof(ShaderMethodSourceGenerator)} failed to execute on method {{0}}, and using it in a shader might result in a runtime crash",
+            category: typeof(ShaderMethodSourceGenerator).FullName,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: $"The {nameof(ShaderMethodSourceGenerator)} generator encountered an error while processing a method, and using it in a shader might result in a runtime crash. Please report this issue at https://github.com/Sergio0694/ComputeSharp/issues.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an incorrect matrix swizzling property argument.
+        /// </summary>
+        public static readonly DiagnosticDescriptor NonConstantMatrixSwizzledIndex = new(
+            id: "CMPS0042",
+            title: "Non constant matrix swizzled property argument",
+            messageFormat: "The arguments in a swizzled indexer for a matrix type must be compile-time constants",
+            category: typeof(ShaderMethodSourceGenerator).FullName,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "The arguments in a swizzled indexer for a matrix type must be compile-time constants.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an invalid shader static field type.
+        /// <para>
+        /// Format: <c>"The compute shader of type {0} contains a static field \"{1}\" of an invalid type {2} (only primitive, vector and matrix types are supported)"</c>.
+        /// </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor InvalidShaderStaticFieldType = new(
+            id: "CMPS0043",
+            title: "Invalid shader static field type",
+            messageFormat: "The compute shader of type {0} contains a static field \"{1}\" of an invalid type {2} (only primitive, vector and matrix types are supported)",
+            category: typeof(IComputeShader).FullName,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "A type representing a compute shader contains a static field of a type that is not supported.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for an invalid <see cref="DispatchSize"/> usage.
+        /// </summary>
+        public static readonly DiagnosticDescriptor InvalidDispatchSizeUsage = new(
+            id: "CMPS0044",
+            title: "Invalid DispatchSize usage",
+            messageFormat: "The DispatchSize type can only be used within the main body of a compute shader",
+            category: typeof(IComputeShader).FullName,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "The DispatchSize type can only be used within the main body of a compute shader.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for a property declaration.
+        /// </summary>
+        public static readonly DiagnosticDescriptor PropertyDeclaration = new(
+            id: "CMPS0045",
+            title: "Property declaration",
+            messageFormat: "Property declarations cannot be used in a compute shader",
+            category: typeof(IComputeShader).FullName,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "Property declarations cannot be used in a compute shader.",
+            helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
+
+        /// <summary>
+        /// Gets a <see cref="DiagnosticDescriptor"/> for a shader with a root signature that is too large.
+        /// <para>
+        /// Format: <c>"The compute shader of type {0} has exceeded the maximum allowed size for captured values and resources"</c>.
+        /// </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor ShaderDispatchDataSizeExceeded = new(
+            id: "CMPS0046",
+            title: "Shader dispatch data size exceeded",
+            messageFormat: "The compute shader of type {0} has exceeded the maximum allowed size for captured values and resources",
+            category: typeof(IComputeShader).FullName,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "The compute shader of type {0} has exceeded the maximum allowed size for captured values and resources.",
             helpLinkUri: "https://github.com/Sergio0694/ComputeSharp");
     }
 }

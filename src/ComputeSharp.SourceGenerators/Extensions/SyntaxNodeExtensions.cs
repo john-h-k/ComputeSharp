@@ -58,6 +58,12 @@ namespace ComputeSharp.SourceGenerators.Extensions
                 _ => semanticModel.GetTypeInfo(sourceType).Type!
             };
 
+            // Do nothing if the type is just void
+            if (typeSymbol.SpecialType == SpecialType.System_Void)
+            {
+                return node;
+            }
+
             string typeName = typeSymbol.ToDisplayString(ISymbolExtensions.FullyQualifiedWithoutGlobalFormat);
 
             discoveredTypes.Add((INamedTypeSymbol)typeSymbol);
@@ -69,7 +75,7 @@ namespace ComputeSharp.SourceGenerators.Extensions
                 return node.ReplaceNode(targetType, newType);
             }
 
-            return node.ReplaceNode(targetType, ParseTypeName(typeName.Replace(".", "__")));
+            return node.ReplaceNode(targetType, ParseTypeName(typeName.ToHlslIdentifierName()));
         }
 
         /// <summary>
@@ -92,7 +98,7 @@ namespace ComputeSharp.SourceGenerators.Extensions
                 return ParseTypeName(mappedName!);
             }
 
-            return ParseTypeName(typeName.Replace(".", "__"));
+            return ParseTypeName(typeName.ToHlslIdentifierName());
         }
 
         /// <summary>
@@ -118,6 +124,22 @@ namespace ComputeSharp.SourceGenerators.Extensions
             }
 
             return node;
+        }
+
+        /// <summary>
+        /// Returns a <see cref="MethodDeclarationSyntax"/> as a method definition.
+        /// </summary>
+        /// <param name="node">The input <see cref="MethodDeclarationSyntax"/> node.</param>
+        /// <returns>A node like the one in input, but just as a definition.</returns>
+        [Pure]
+        public static MethodDeclarationSyntax AsDefinition(this MethodDeclarationSyntax node)
+        {
+            if (node.ExpressionBody is ArrowExpressionClauseSyntax)
+            {
+                return node.WithExpressionBody(null).WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+            }
+
+            return node.WithBody(null).WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
         /// <summary>
@@ -147,6 +169,22 @@ namespace ComputeSharp.SourceGenerators.Extensions
             }
 
             return node;
+        }
+
+        /// <summary>
+        /// Returns a <see cref="LocalFunctionStatementSyntax"/> as a method definition.
+        /// </summary>
+        /// <param name="node">The input <see cref="LocalFunctionStatementSyntax"/> node.</param>
+        /// <returns>A node like the one in input, but just as a definition.</returns>
+        [Pure]
+        public static LocalFunctionStatementSyntax AsDefinition(this LocalFunctionStatementSyntax node)
+        {
+            if (node.ExpressionBody is ArrowExpressionClauseSyntax)
+            {
+                return node.WithExpressionBody(null).WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+            }
+
+            return node.WithBody(null).WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
         /// <summary>

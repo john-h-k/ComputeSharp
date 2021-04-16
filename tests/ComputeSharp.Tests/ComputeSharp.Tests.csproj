@@ -6,11 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.3" />
-    <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.0.0-preview4" />
-    <PackageReference Include="MSTest.TestAdapter" Version="2.1.2" />
-    <PackageReference Include="MSTest.TestFramework" Version="2.1.2" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" />
+    <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.0.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.1" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,6 +27,13 @@
     <Compile Include="..\..\samples\ComputeSharp.ImageProcessing\Processors\HlslBokehBlurProcessor{TPixel}.cs" Link="Imaging\Processors\HlslBokehBlurProcessor{TPixel}.cs" />
     <Compile Include="..\..\samples\ComputeSharp.ImageProcessing\Processors\HlslGaussianBlurProcessor.cs" Link="Imaging\Processors\HlslGaussianBlurProcessor.cs" />
     <Compile Include="..\..\samples\ComputeSharp.ImageProcessing\Processors\HlslGaussianBlurProcessor{TPixel}.cs" Link="Imaging\Processors\HlslGaussianBlurProcessor{TPixel}.cs" />
+    <Compile Include="..\..\samples\ComputeSharp.SwapChain\Shaders\ColorfulInfinity.cs" Link="Shaders\ColorfulInfinity.cs" />
+    <Compile Include="..\..\samples\ComputeSharp.SwapChain\Shaders\ExtrudedTruchetPattern.cs" Link="Shaders\ExtrudedTruchetPattern.cs" />
+    <Compile Include="..\..\samples\ComputeSharp.SwapChain\Shaders\FractalTiling.cs" Link="Shaders\FractalTiling.cs" />
+    <Compile Include="..\..\samples\ComputeSharp.SwapChain\Shaders\MengerJourney.cs" Link="Shaders\MengerJourney.cs" />
+    <Compile Include="..\..\samples\ComputeSharp.SwapChain\Shaders\TwoTiledTruchet.cs" Link="Shaders\TwoTiledTruchet.cs" />
+    <Compile Include="..\..\samples\ComputeSharp.SwapChain\Shaders\Octagrams.cs" Link="Shaders\Octagrams.cs" />
+    <Compile Include="..\..\samples\ComputeSharp.SwapChain\Shaders\ProteanClouds.cs" Link="Shaders\ProteanClouds.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +41,30 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Assets\ColorfulInfinity.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Assets\ExtrudedTruchetPattern.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\FractalTiling.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\MengerJourney.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Octagrams.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\TwoTiledTruchet.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Octagrams.png">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\ProteanClouds.png">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Texture2DTests.Pixels.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>Texture2DTests.Pixels.g.cs</LastGenOutput>

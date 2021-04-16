@@ -39,20 +39,14 @@ namespace ComputeSharp.SourceGenerators.Mappings
             knownKeywords.Add(nameof(ThreadIds));
             knownKeywords.Add(nameof(GroupIds));
             knownKeywords.Add(nameof(GroupSize));
-            knownKeywords.Add(nameof(WarpIds));
+            knownKeywords.Add(nameof(GridIds));
 
             // HLSL intrinsics method names
-            foreach (var method in
-                from method in typeof(Hlsl).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                group method by method.Name
-                into groups
-                select (Name: groups.Key, MethodInfo: groups.First()))
+            foreach (var method in typeof(Hlsl).GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
-                string hlslName = method.MethodInfo.GetCustomAttribute<PreserveMemberNameAttribute>() != null
-                    ? method.Name
-                    : method.Name.ToLowerInvariant();
+                string name = method.GetCustomAttribute<HlslIntrinsicNameAttribute>()?.Name ?? method.Name;
 
-                knownKeywords.Add(hlslName);
+                knownKeywords.Add(name);
             }
 
             return knownKeywords;

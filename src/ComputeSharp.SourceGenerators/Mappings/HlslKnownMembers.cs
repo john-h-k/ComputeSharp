@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace ComputeSharp.SourceGenerators.Mappings
 {
@@ -13,9 +15,9 @@ namespace ComputeSharp.SourceGenerators.Mappings
     internal static class HlslKnownMembers
     {
         /// <summary>
-        /// The mapping of supported known indexers to HLSL vector type names.
+        /// The mapping of supported known indexers to HLSL resource type names.
         /// </summary>
-        private static readonly IReadOnlyDictionary<string, string> KnownIndexers = new Dictionary<string, string>
+        private static readonly IReadOnlyDictionary<string, string> KnownResourceIndexers = new Dictionary<string, string>
         {
             [$"ComputeSharp.ReadOnlyTexture2D`1.this[{typeof(int).FullName}, {typeof(int).FullName}]"] = "int2",
             [$"ComputeSharp.ReadOnlyTexture2D`2.this[{typeof(int).FullName}, {typeof(int).FullName}]"] = "int2",
@@ -183,11 +185,25 @@ namespace ComputeSharp.SourceGenerators.Mappings
 
             // Programmatically load mappings for the instance members of the HLSL vector types
             foreach (var item in
-                from type in HlslKnownTypes.HlslMappedVectorTypes
+                from type in HlslKnownTypes.KnownVectorTypes
                 from property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 select (Type: type, Property: property))
             {
                 knownMembers.Add($"{item.Type.FullName}{Type.Delimiter}{item.Property.Name}", $"{item.Property.Name.ToLower()}");
+            }
+
+            // Load mappings for the matrix properties as well
+            foreach (var item in
+                from type in HlslKnownTypes.KnownMatrixTypes
+                from property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                where Regex.IsMatch(property.Name, "^M[1-4]{2}$")
+                select (Type: type, Property: property))
+            {
+                char
+                    row = (char)(item.Property.Name[1] - 1),
+                    column = (char)(item.Property.Name[2] - 1);
+
+                knownMembers.Add($"{item.Type.FullName}{Type.Delimiter}{item.Property.Name}", $"_m{row}{column}");
             }
 
             // Store GroupIds.Index for a quicker comparison afterwards
@@ -211,6 +227,37 @@ namespace ComputeSharp.SourceGenerators.Mappings
                 }
             }
 
+            // Programmatically load mappings for the normalized thread ids
+            foreach (var property in typeof(ThreadIds.Normalized).GetProperties(BindingFlags.Static | BindingFlags.Public))
+            {
+                string key = $"{typeof(ThreadIds).FullName}{Type.Delimiter}{typeof(ThreadIds.Normalized).Name}{Type.Delimiter}{property.Name}";
+
+                switch (property.Name)
+                {
+                    case string name when name.Length == 1:
+                        knownMembers.Add(key, $"{typeof(ThreadIds).Name}.{char.ToLower(name[0])} / (float)__{char.ToLower(name[0])}");
+                        break;
+                    case string name when name.Length == 2:
+                    {
+                        string
+                            numerator = $"float2({typeof(ThreadIds).Name}.{char.ToLower(name[0])}, {typeof(ThreadIds).Name}.{char.ToLower(name[1])})",
+                            denominator = $"float2(__{char.ToLower(name[0])}, __{char.ToLower(name[1])})";
+
+                        knownMembers.Add(key, $"{numerator} / {denominator}");
+                        break;
+                    }
+                    case string name when name.Length == 3:
+                    {
+                        string
+                            numerator = $"float3({typeof(ThreadIds).Name}.{char.ToLower(name[0])}, {typeof(ThreadIds).Name}.{char.ToLower(name[1])}, {typeof(ThreadIds).Name}.{char.ToLower(name[2])})",
+                            denominator = $"float3(__{char.ToLower(name[0])}, __{char.ToLower(name[1])}, __{char.ToLower(name[2])})";
+
+                        knownMembers.Add(key, $"{numerator} / {denominator}");
+                        break;
+                    }
+                }
+            }
+
             // Programmatically load mappings for the group size
             foreach (var property in typeof(GroupSize).GetProperties(BindingFlags.Static | BindingFlags.Public))
             {
@@ -224,16 +271,98 @@ namespace ComputeSharp.SourceGenerators.Mappings
                     case string name when name.Length == 1:
                         knownMembers.Add(key, $"__GroupSize__get_{name}");
                         break;
-                    case string name when name.Length == 1:
-                        knownMembers.Add(key, $"__GroupSize__get_{name[0]} * __GroupSize__get_{name[1]}");
+                    case string name when name.Length == 2:
+                        knownMembers.Add(key, $"int2(__GroupSize__get_{name[0]}, __GroupSize__get_{name[1]})");
+                        break;
+                    case string name when name.Length == 3:
+                        knownMembers.Add(key, $"int3(__GroupSize__get_{name[0]}, __GroupSize__get_{name[1]}, __GroupSize__get_{name[2]})");
+                        break;
+                }
+            }
+
+            // Programmatically load mappings for the dispatch size
+            foreach (var property in typeof(DispatchSize).GetProperties(BindingFlags.Static | BindingFlags.Public))
+            {
+                string key = $"{typeof(DispatchSize).FullName}{Type.Delimiter}{property.Name}";
+
+                switch (property.Name)
+                {
+                    case nameof(DispatchSize.Count):
+                        knownMembers.Add(key, "__x * __y * __z");
                         break;
                     case string name when name.Length == 1:
-                        knownMembers.Add(key, $"__GroupSize__get_{name[0]} * __GroupSize__get_{name[1]} * __GroupSize__get_{name[2]}");
+                        knownMembers.Add(key, $"__{char.ToLower(name[0])}");
+                        break;
+                    case string name when name.Length == 2:
+                        knownMembers.Add(key, $"int2(__{char.ToLower(name[0])}, __{char.ToLower(name[1])})");
+                        break;
+                    case string name when name.Length == 3:
+                        knownMembers.Add(key, $"int3(__{char.ToLower(name[0])}, __{char.ToLower(name[1])}, __{char.ToLower(name[2])})");
                         break;
                 }
             }
 
             return knownMembers;
+        }
+
+        /// <summary>
+        /// The mapping of supported known members to HLSL names.
+        /// </summary>
+        private static readonly IReadOnlyCollection<string> KnownMatrixIndexers = BuildKnownMatrixIndexers();
+
+        /// <summary>
+        /// Builds the mapping of swizzled matrix indexer properties.
+        /// </summary>
+        [Pure]
+        private static IReadOnlyCollection<string> BuildKnownMatrixIndexers()
+        {
+            return (
+                from type in Assembly.GetExecutingAssembly().ExportedTypes
+                where Regex.IsMatch(type.FullName, @"ComputeSharp\.(Bool|Double|Float|Int|UInt)[1-4]x[1-4]")
+                from property in type.GetProperties()
+                let indices = property.GetIndexParameters()
+                where indices.Length > 0 &&
+                      indices.All(static index => index.ParameterType == typeof(MatrixIndex))
+                let metadataName = $"{type.FullName}.this[{string.Join(", ", indices.Select(index => index.ParameterType))}]"
+                select metadataName).ToImmutableHashSet();
+        }
+
+        /// <summary>
+        /// The mapping of supported known members to HLSL names.
+        /// </summary>
+        private static readonly IReadOnlyCollection<string> KnownMatrixIndices = BuildKnownMatrixIndices();
+
+        /// <summary>
+        /// Builds the mapping of swizzled matrix indices.
+        /// </summary>
+        [Pure]
+        private static IReadOnlyCollection<string> BuildKnownMatrixIndices()
+        {
+            return (
+                from name in Enum.GetNames(typeof(MatrixIndex))
+                select $"{typeof(MatrixIndex).FullName}.{name}").ToImmutableHashSet();
+        }
+
+        /// <summary>
+        /// Checks whether or not a given property fullname matches a matrix swizzled indexer.
+        /// </summary>
+        /// <param name="name">The input fully qualified member name.</param>
+        /// <returns>Whether or not <paramref name="name"/> is a matrix swizzled indexer.</returns>
+        [Pure]
+        public static bool IsKnownMatrixIndexer(string name)
+        {
+            return KnownMatrixIndexers.Contains(name);
+        }
+
+        /// <summary>
+        /// Checks whether or not a given property fullname matches a matrix swizzled index.
+        /// </summary>
+        /// <param name="name">The input fully qualified member name.</param>
+        /// <returns>Whether or not <paramref name="name"/> is a matrix swizzled index.</returns>
+        [Pure]
+        public static bool IsKnownMatrixIndex(string name)
+        {
+            return KnownMatrixIndices.Contains(name);
         }
 
         /// <summary>
@@ -249,15 +378,15 @@ namespace ComputeSharp.SourceGenerators.Mappings
         }
 
         /// <summary>
-        /// Tries to get the mapped HLSL-compatible indexer vector type name for the input indexer name.
+        /// Tries to get the mapped HLSL-compatible indexer resource type name for the input indexer name.
         /// </summary>
         /// <param name="name">The input fully qualified indexer name.</param>
         /// <param name="mapped">The mapped type name, if one is found.</param>
         /// <returns>The HLSL-compatible type name that can be used in an HLSL shader for the given indexer.</returns>
         [Pure]
-        public static bool TryGetMappedIndexerTypeName(string name, out string? mapped)
+        public static bool TryGetMappedResourceIndexerTypeName(string name, out string? mapped)
         {
-            return KnownIndexers.TryGetValue(name, out mapped);
+            return KnownResourceIndexers.TryGetValue(name, out mapped);
         }
 
         /// <summary>

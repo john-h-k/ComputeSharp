@@ -13,7 +13,7 @@ namespace ComputeSharp.Tests
         [TestMethod]
         public void IsSupported()
         {
-            Assert.IsTrue(Gpu.IsSupported);
+            Assert.IsTrue(Gpu.Default is not null);
         }
 
         [CombinatorialTestMethod]
@@ -24,16 +24,6 @@ namespace ComputeSharp.Tests
 
             Assert.IsTrue(gpu.Luid != default);
             Assert.IsTrue(gpu.Name is { Length: > 0 });
-
-            if (gpu.IsHardwareAccelerated)
-            {
-                Assert.IsTrue(gpu.DedicatedMemorySize != 0);
-            }
-            else
-            {
-                Assert.IsTrue(gpu.SharedMemorySize != 0);
-            }
-
             Assert.IsTrue(gpu.ComputeUnits != 0);
             Assert.IsTrue(gpu.WavefrontSize != 0);
         }
