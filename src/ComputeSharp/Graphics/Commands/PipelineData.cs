@@ -1,5 +1,6 @@
 ﻿using ComputeSharp.Interop;
-using TerraFX.Interop;
+using Voltium.Core.Devices;
+using Voltium.Core.NativeApi;
 
 namespace ComputeSharp.Graphics.Commands
 {
@@ -9,41 +10,29 @@ namespace ComputeSharp.Graphics.Commands
     internal sealed unsafe class PipelineData : NativeObject
     {
         /// <summary>
-        /// The <see cref="ID3D12RootSignature"/> instance for the current <see cref="PipelineData"/> object.
+        /// The <see cref="PipelineHandle"/> instance for the current <see cref="PipelineData"/> object.
         /// </summary>
-        private ComPtr<ID3D12RootSignature> d3D12RootSignature;
-
-        /// <summary>
-        /// The <see cref="ID3D12PipelineState"/> instance for the current <see cref="PipelineData"/> object.
-        /// </summary>
-        private ComPtr<ID3D12PipelineState> d3D12PipelineState;
+        private PipelineHandle pipeline;
 
         /// <summary>
         /// Creates a new <see cref="PipelineData"/> instance with the specified parameters.
         /// </summary>
         /// <param name="d3D12RootSignature">The <see cref="ID3D12RootSignature"/> value for the current shader.</param>
         /// <param name="d3D12PipelineState">The compiled pipeline state to reuse for the current shader.</param>
-        public PipelineData(ID3D12RootSignature* d3D12RootSignature, ID3D12PipelineState* d3D12PipelineState)
+        internal PipelineData(INativeDevice device, PipelineHandle pipeline) : base(device)
         {
-            this.d3D12RootSignature = new ComPtr<ID3D12RootSignature>(d3D12RootSignature);
-            this.d3D12PipelineState = new ComPtr<ID3D12PipelineState>(d3D12PipelineState);
+            this.pipeline = pipeline;
         }
 
         /// <summary>
-        /// Gets the <see cref="ID3D12RootSignature"/> instance for the current <see cref="PipelineData"/> object.
+        /// Gets the <see cref="PipelineHandle"/> instance for the current <see cref="PipelineData"/> object.
         /// </summary>
-        public ID3D12RootSignature* D3D12RootSignature => this.d3D12RootSignature;
-
-        /// <summary>
-        /// Gets the <see cref="ID3D12PipelineState"/> instance for the current <see cref="PipelineData"/> object.
-        /// </summary>
-        public ID3D12PipelineState* D3D12PipelineState => this.d3D12PipelineState;
+        public PipelineHandle Pipeline => this.pipeline;
 
         /// <inheritdoc/>
         protected override bool OnDispose()
         {
-            this.d3D12RootSignature.Dispose();
-            this.d3D12PipelineState.Dispose();
+            this.device.DisposePipeline(this.pipeline);
 
             return true;
         }

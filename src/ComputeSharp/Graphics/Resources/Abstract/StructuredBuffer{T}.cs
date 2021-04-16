@@ -1,11 +1,11 @@
 ﻿using ComputeSharp.Graphics.Commands;
-using ComputeSharp.Graphics.Extensions;
 using ComputeSharp.Graphics.Helpers;
-using ComputeSharp.Graphics.Resources.Interop;
-using ComputeSharp.Interop;
 using Microsoft.Toolkit.Diagnostics;
-using TerraFX.Interop;
-using static TerraFX.Interop.D3D12_COMMAND_LIST_TYPE;
+using System.Buffers;
+using System.Runtime.CompilerServices;
+using Voltium.Core;
+using Voltium.Core.Memory;
+using Voltium.Core.NativeApi;
 using ResourceType = ComputeSharp.Graphics.Resources.Enums.ResourceType;
 
 namespace ComputeSharp.Resources
@@ -41,12 +41,12 @@ namespace ComputeSharp.Resources
 
             if (GraphicsDevice.IsCacheCoherentUMA)
             {
-                using ID3D12ResourceMap resource = D3D12Resource->Map();
+                var pointer = this.device.Map(this.Resource);
 
                 fixed (void* destinationPointer = &destination)
                 {
                     MemoryHelper.Copy(
-                        resource.Pointer,
+                        pointer,
                         (uint)offset,
                         (uint)length,
                         (uint)sizeof(T),
@@ -55,24 +55,36 @@ namespace ComputeSharp.Resources
             }
             else
             {
-                nint
-                    byteOffset = (nint)offset * sizeof(T),
-                    byteLength = length * sizeof(T);
+                nuint
+                    byteOffset = (nuint)(offset * sizeof(T)),
+                    byteLength = (nuint)(length * sizeof(T));
 
-                using UniquePtr<D3D12MA_Allocation> allocation = GraphicsDevice.Allocator->CreateResource(ResourceType.ReadBack, AllocationMode.Default, (ulong)byteLength);
+                var desc = new BufferDesc { Length = (ulong)SizeInBytes, ResourceFlags = ResourceFlags.None };
+                var intermediate = device.AllocateBuffer(desc, MemoryAccess.CpuReadback);
 
-                using (CommandList copyCommandList = new(GraphicsDevice, D3D12_COMMAND_LIST_TYPE_COPY))
+                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
+
+                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
                 {
-                    copyCommandList.D3D12GraphicsCommandList->CopyBufferRegion(allocation.Get()->GetResource(), 0, D3D12Resource, (ulong)byteOffset, (ulong)byteLength);
-                    copyCommandList.ExecuteAndWaitForCompletion();
-                }
+                    Source = this.Resource,
+                    Dest = intermediate,
+                    SourceOffset = byteOffset,
+                    DestOffset = 0,
+                    Length = byteLength
+                };
 
-                using ID3D12ResourceMap resource = allocation.Get()->GetResource()->Map();
+                var commands = new CommandBuffer { Buffer = commandBuffer };
+
+                this.GraphicsDevice.ExecuteCopy(commands).Block();
+
+                ArrayPool<byte>.Shared.Return(commandBuffer);
+
+                var pointer = this.device.Map(this.Resource);
 
                 fixed (void* destinationPointer = &destination)
                 {
                     MemoryHelper.Copy(
-                        resource.Pointer,
+                        pointer,
                         0u,
                         (uint)length,
                         (uint)sizeof(T),
@@ -104,10 +116,10 @@ namespace ComputeSharp.Resources
 
             if (GraphicsDevice.IsCacheCoherentUMA)
             {
-                using ID3D12ResourceMap resource = D3D12Resource->Map();
+                var pointer = this.device.Map(this.Resource);
 
                 MemoryHelper.Copy(
-                    resource.Pointer,
+                    pointer,
                     (uint)offset,
                     (uint)length,
                     (uint)sizeof(T),
@@ -120,10 +132,22 @@ namespace ComputeSharp.Resources
                     byteOffset = (uint)offset * (uint)sizeof(T),
                     byteLength = (uint)length * (uint)sizeof(T);
 
-                using CommandList copyCommandList = new(GraphicsDevice, D3D12_COMMAND_LIST_TYPE_COPY);
+                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
 
-                copyCommandList.D3D12GraphicsCommandList->CopyBufferRegion(destination.D3D12Resource, byteDestinationOffset, D3D12Resource, byteOffset, byteLength);
-                copyCommandList.ExecuteAndWaitForCompletion();
+                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
+                {
+                    Source = this.Resource,
+                    Dest = destination.Resource,
+                    SourceOffset = byteOffset,
+                    DestOffset = byteDestinationOffset,
+                    Length = byteLength
+                };
+
+                var commands = new CommandBuffer { Buffer = commandBuffer };
+
+                this.GraphicsDevice.ExecuteCopy(commands).Block();
+
+                ArrayPool<byte>.Shared.Return(commandBuffer);
             }
         }
 
@@ -139,7 +163,7 @@ namespace ComputeSharp.Resources
 
             if (GraphicsDevice.IsCacheCoherentUMA)
             {
-                using ID3D12ResourceMap resource = D3D12Resource->Map();
+                var pointer = this.device.Map(this.Resource);
 
                 fixed (void* sourcePointer = &source)
                 {
@@ -148,32 +172,47 @@ namespace ComputeSharp.Resources
                         (uint)offset,
                         (uint)length,
                         (uint)sizeof(T),
-                        resource.Pointer);
+                         pointer);
                 }
             }
             else
             {
-                nint
-                    byteOffset = (nint)offset * sizeof(T),
-                    byteLength = length * sizeof(T);
+                nuint
+                    byteOffset = (nuint)(offset * sizeof(T)),
+                    byteLength = (nuint)(length * sizeof(T));
 
-                using UniquePtr<D3D12MA_Allocation> allocation = GraphicsDevice.Allocator->CreateResource(ResourceType.Upload, AllocationMode.Default, (ulong)byteLength);
 
-                using (ID3D12ResourceMap resource = allocation.Get()->GetResource()->Map())
+                var desc = new BufferDesc { Length = (ulong)SizeInBytes, ResourceFlags = ResourceFlags.None };
+                var intermediate = device.AllocateBuffer(desc, MemoryAccess.CpuReadback);
+
                 fixed (void* sourcePointer = &source)
                 {
+                    var pointer = this.device.Map(this.Resource);
+
                     MemoryHelper.Copy(
                         sourcePointer,
                         0u,
                         (uint)length,
                         (uint)sizeof(T),
-                        resource.Pointer);
+                        pointer);
                 }
 
-                using CommandList copyCommandList = new(GraphicsDevice, D3D12_COMMAND_LIST_TYPE_COPY);
+                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
 
-                copyCommandList.D3D12GraphicsCommandList->CopyBufferRegion(D3D12Resource, (ulong)byteOffset, allocation.Get()->GetResource(), 0, (ulong)byteLength);
-                copyCommandList.ExecuteAndWaitForCompletion();
+                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
+                {
+                    Source = intermediate,
+                    Dest = this.Resource,
+                    SourceOffset = byteOffset,
+                    DestOffset = 0,
+                    Length = byteLength
+                };
+
+                var commands = new CommandBuffer { Buffer = commandBuffer };
+
+                this.GraphicsDevice.ExecuteCopy(commands).Block();
+
+                ArrayPool<byte>.Shared.Return(commandBuffer);
             }
         }
 
@@ -200,14 +239,14 @@ namespace ComputeSharp.Resources
 
             if (GraphicsDevice.IsCacheCoherentUMA)
             {
-                using ID3D12ResourceMap resource = D3D12Resource->Map();
+                var pointer = this.device.Map(this.Resource);
 
                 MemoryHelper.Copy(
                     source.MappedData,
                     (uint)sourceOffset,
                     (uint)length,
                     (uint)sizeof(T),
-                    (T*)resource.Pointer + offset);
+                    (T*)pointer + offset);
             }
             else
             {
@@ -216,10 +255,22 @@ namespace ComputeSharp.Resources
                     byteOffset = (uint)offset * (uint)sizeof(T),
                     byteLength = (uint)length * (uint)sizeof(T);
 
-                using CommandList copyCommandList = new(GraphicsDevice, D3D12_COMMAND_LIST_TYPE_COPY);
+                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
 
-                copyCommandList.D3D12GraphicsCommandList->CopyBufferRegion(D3D12Resource, byteOffset, source.D3D12Resource, byteSourceOffset, byteLength);
-                copyCommandList.ExecuteAndWaitForCompletion();
+                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
+                {
+                    Source = source.Resource,
+                    Dest = this.Resource,
+                    SourceOffset = byteSourceOffset,
+                    DestOffset = byteOffset,
+                    Length = byteLength
+                };
+
+                var commands = new CommandBuffer { Buffer = commandBuffer };
+
+                this.GraphicsDevice.ExecuteCopy(commands).Block();
+
+                ArrayPool<byte>.Shared.Return(commandBuffer);
             }
         }
 
@@ -237,11 +288,22 @@ namespace ComputeSharp.Resources
 
             if (!source.IsPaddingPresent)
             {
-                // Directly copy the input buffer
-                using CommandList copyCommandList = new(GraphicsDevice, D3D12_COMMAND_LIST_TYPE_COPY);
+                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
 
-                copyCommandList.D3D12GraphicsCommandList->CopyBufferRegion(D3D12Resource, 0, source.D3D12Resource, 0,(ulong)SizeInBytes);
-                copyCommandList.ExecuteAndWaitForCompletion();
+                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
+                {
+                    Source = source.Resource,
+                    Dest = this.Resource,
+                    SourceOffset = 0,
+                    DestOffset = 0,
+                    Length = (ulong)SizeInBytes
+                };
+
+                var commands = new CommandBuffer { Buffer = commandBuffer };
+
+                this.GraphicsDevice.ExecuteCopy(commands).Block();
+
+                ArrayPool<byte>.Shared.Return(commandBuffer);
             }
             else CopyFromWithCpuBuffer(source);
         }

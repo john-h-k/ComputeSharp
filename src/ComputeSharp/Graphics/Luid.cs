@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
-using TerraFX.Interop;
+
 
 namespace ComputeSharp
 {

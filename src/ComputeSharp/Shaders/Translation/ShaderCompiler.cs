@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using ComputeSharp.Core.Extensions;
 using ComputeSharp.Exceptions;
 using TerraFX.Interop;
+
 using FX = TerraFX.Interop.Windows;
 
 namespace ComputeSharp.Shaders.Translation

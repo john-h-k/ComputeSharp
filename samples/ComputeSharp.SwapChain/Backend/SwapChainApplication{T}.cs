@@ -1,6 +1,7 @@
 ﻿using System;
 using ComputeSharp.Interop;
 using TerraFX.Interop;
+using Voltium.Core.Devices;
 using FX = TerraFX.Interop.Windows;
 
 namespace ComputeSharp.SwapChain.Backend
@@ -16,47 +17,7 @@ namespace ComputeSharp.SwapChain.Backend
         /// <summary>
         /// The <see cref="ID3D12Device"/> pointer for the device currently in use.
         /// </summary>
-        private ComPtr<ID3D12Device> d3D12Device;
-
-        /// <summary>
-        /// The <see cref="ID3D12CommandQueue"/> instance to use for graphics operations.
-        /// </summary>
-        private ComPtr<ID3D12CommandQueue> d3D12CommandQueue;
-
-        /// <summary>
-        /// The <see cref="ID3D12Fence"/> instance used for graphics operations.
-        /// </summary>
-        private ComPtr<ID3D12Fence> d3D12Fence;
-
-        /// <summary>
-        /// The next fence value for graphics operations using <see cref="d3D12CommandQueue"/>.
-        /// </summary>
-        private ulong nextD3D12FenceValue = 1;
-
-        /// <summary>
-        /// The <see cref="ID3D12CommandAllocator"/> object to create command lists.
-        /// </summary>
-        private ComPtr<ID3D12CommandAllocator> d3D12CommandAllocator;
-
-        /// <summary>
-        /// The <see cref="ID3D12GraphicsCommandList"/> instance used to copy data to the back buffers.
-        /// </summary>
-        private ComPtr<ID3D12GraphicsCommandList> d3D12GraphicsCommandList;
-
-        /// <summary>
-        /// The <see cref="IDXGISwapChain1"/> instance used to display content onto the target window.
-        /// </summary>
-        private ComPtr<IDXGISwapChain1> dxgiSwapChain1;
-
-        /// <summary>
-        /// The first buffer within <see cref="dxgiSwapChain1"/>.
-        /// </summary>
-        private ComPtr<ID3D12Resource> d3D12Resource0;
-
-        /// <summary>
-        /// The second buffer within <see cref="dxgiSwapChain1"/>.
-        /// </summary>
-        private ComPtr<ID3D12Resource> d3D12Resource1;
+        private DXGINativeOutput output;
 
         /// <summary>
         /// The index of the next buffer that can be used to present content.
@@ -233,7 +194,7 @@ namespace ComputeSharp.SwapChain.Backend
             // Generate the new frame
             Gpu.Default.For(this.texture!.Width, this.texture.Height, this.shaderFactory(this.texture, time));
 
-            using ComPtr<ID3D12Resource> d3D12Resource = default;
+            //using ComPtr<ID3D12Resource> d3D12Resource = default;
 
             // Get the underlying ID3D12Resource pointer for the texture
             _ = InteropServices.TryGetID3D12Resource(this.texture, FX.__uuidof<ID3D12Resource>(), (void**)d3D12Resource.GetAddressOf());
@@ -252,36 +213,36 @@ namespace ComputeSharp.SwapChain.Backend
             this.d3D12CommandAllocator.Get()->Reset();
             this.d3D12GraphicsCommandList.Get()->Reset(this.d3D12CommandAllocator.Get(), null);
 
-            D3D12_RESOURCE_BARRIER* d3D12ResourceBarriers = stackalloc D3D12_RESOURCE_BARRIER[]
-            {
-                D3D12_RESOURCE_BARRIER.InitTransition(
-                    d3D12Resource.Get(),
-                    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_SOURCE),
-                D3D12_RESOURCE_BARRIER.InitTransition(
-                    d3D12ResourceBackBuffer,
-                    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COMMON,
-                    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_DEST)
-            };
+            //D3D12_RESOURCE_BARRIER* d3D12ResourceBarriers = stackalloc D3D12_RESOURCE_BARRIER[]
+            //{
+            //    D3D12_RESOURCE_BARRIER.InitTransition(
+            //        d3D12Resource.Get(),
+            //        D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            //        D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_SOURCE),
+            //    D3D12_RESOURCE_BARRIER.InitTransition(
+            //        d3D12ResourceBackBuffer,
+            //        D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COMMON,
+            //        D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_DEST)
+            //};
 
-            // Transition the resources to COPY_DEST and COPY_SOURCE respectively
-            d3D12GraphicsCommandList.Get()->ResourceBarrier(2, d3D12ResourceBarriers);
+            //// Transition the resources to COPY_DEST and COPY_SOURCE respectively
+            //d3D12GraphicsCommandList.Get()->ResourceBarrier(2, d3D12ResourceBarriers);
 
-            // Copy the generated frame to the target back buffer
-            d3D12GraphicsCommandList.Get()->CopyResource(d3D12ResourceBackBuffer, d3D12Resource.Get());
+            //// Copy the generated frame to the target back buffer
+            //d3D12GraphicsCommandList.Get()->CopyResource(d3D12ResourceBackBuffer, d3D12Resource.Get());
 
-            d3D12ResourceBarriers[0] = D3D12_RESOURCE_BARRIER.InitTransition(
-                d3D12Resource.Get(),
-                D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_SOURCE,
-                D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            //d3D12ResourceBarriers[0] = D3D12_RESOURCE_BARRIER.InitTransition(
+            //    d3D12Resource.Get(),
+            //    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_SOURCE,
+            //    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-            d3D12ResourceBarriers[1] = D3D12_RESOURCE_BARRIER.InitTransition(
-                d3D12ResourceBackBuffer,
-                D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_DEST,
-                D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COMMON);
+            //d3D12ResourceBarriers[1] = D3D12_RESOURCE_BARRIER.InitTransition(
+            //    d3D12ResourceBackBuffer,
+            //    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COPY_DEST,
+            //    D3D12_RESOURCE_STATES.D3D12_RESOURCE_STATE_COMMON);
 
-            // Transition the resources back to COMMON and UNORDERED_ACCESS respectively
-            d3D12GraphicsCommandList.Get()->ResourceBarrier(2, d3D12ResourceBarriers);
+            //// Transition the resources back to COMMON and UNORDERED_ACCESS respectively
+            //d3D12GraphicsCommandList.Get()->ResourceBarrier(2, d3D12ResourceBarriers);
 
             d3D12GraphicsCommandList.Get()->Close();
 

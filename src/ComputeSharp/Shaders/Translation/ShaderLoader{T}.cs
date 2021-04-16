@@ -4,16 +4,29 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reflection;
 using ComputeSharp.__Internals;
+using ComputeSharp.Graphics.Resources.Enums;
 using ComputeSharp.Shaders.Mappings;
 using ComputeSharp.Shaders.Renderer.Models;
 using Microsoft.Toolkit.Diagnostics;
-using TerraFX.Interop;
-using static TerraFX.Interop.D3D12_DESCRIPTOR_RANGE_TYPE;
 
 #pragma warning disable CS0419, CS0618, CS8618
 
 namespace ComputeSharp.Shaders.Translation
 {
+    internal readonly struct ShaderResourceBinding
+    {
+        public ShaderResourceBinding(ResourceType type, uint register, uint space)
+        {
+            Type = type;
+            Register = register;
+            Space = space;
+        }
+
+        public readonly ResourceType Type { get; }
+        public readonly uint Register { get;}
+        public readonly uint Space { get; }
+    }
+
     /// <summary>
     /// A <see langword="class"/> responsible for loading and processing shaders of a given type.
     /// </summary>
@@ -45,10 +58,12 @@ namespace ComputeSharp.Shaders.Translation
         /// </summary>
         private uint readWriteBuffersCount;
 
+
+
         /// <summary>
-        /// The array of <see cref="D3D12_DESCRIPTOR_RANGE1"/> items that are required to load the captured values.
+        /// The array of <see cref="ShaderResourceBinding"/> items that are required to load the captured values.
         /// </summary>
-        private D3D12_DESCRIPTOR_RANGE1[] d3D12DescriptorRanges1;
+        private ShaderResourceBinding[] bindings;
 
         /// <summary>
         /// The <see cref="List{T}"/> with the <see cref="Renderer.Models.HlslResourceInfo"/> items for the shader fields.
@@ -85,14 +100,14 @@ namespace ComputeSharp.Shaders.Translation
         /// <summary>
         /// Gets the number of 32 bit constants in the root signature for the shader.
         /// </summary>
-        public int D3D12Root32BitConstantsCount { get; private set; }
+        public int Root32BitConstantsCount { get; private set; }
 
         /// <summary>
-        /// Gets a <see cref="Span{T}"/> with the loaded <see cref="D3D12_DESCRIPTOR_RANGE1"/> items for the shader.
+        /// Gets a <see cref="Span{T}"/> with the loaded <see cref="ShaderResourceBinding"/> items for the shader.
         /// </summary>
-        public ReadOnlySpan<D3D12_DESCRIPTOR_RANGE1> D3D12DescriptorRanges1
+        public ReadOnlySpan<ShaderResourceBinding> Bindings
         {
-            get => this.d3D12DescriptorRanges1;
+            get => this.bindings;
         }
 
         /// <inheritdoc/>
@@ -136,7 +151,7 @@ namespace ComputeSharp.Shaders.Translation
 
             // Reading members through reflection requires an object parameter, so here we're just boxing
             // the input shader once to avoid allocating it multiple times while processing the shader.
-            @this.d3D12DescriptorRanges1 = @this.LoadFieldsInfo(shader);
+            @this.bindings = @this.LoadFieldsInfo(shader);
 
             @this.InitializeDispatchDataLoader();
 
@@ -166,8 +181,8 @@ namespace ComputeSharp.Shaders.Translation
         /// Loads the fields info for the current shader being loaded.
         /// </summary>
         /// <param name="shader">The boxed <typeparamref name="T"/> instance to use to build the shader.</param>
-        /// <returns>The array of <see cref="D3D12_DESCRIPTOR_RANGE1"/> items that are required to load the captured values.</returns>
-        private D3D12_DESCRIPTOR_RANGE1[] LoadFieldsInfo(object shader)
+        /// <returns>The array of <see cref="ShaderResourceBinding"/> items that are required to load the captured values.</returns>
+        private ShaderResourceBinding[] LoadFieldsInfo(object shader)
         {
             IReadOnlyList<FieldInfo> shaderFields = typeof(T).GetFields(
                 BindingFlags.Instance |
@@ -179,15 +194,15 @@ namespace ComputeSharp.Shaders.Translation
                 ThrowHelper.ThrowInvalidOperationException("The shader body must contain at least one field");
             }
 
-            List<D3D12_DESCRIPTOR_RANGE1> d3D12DescriptorRanges1 = new();
+            List<ShaderResourceBinding> bindings = new();
 
             // Inspect the captured fields
             foreach (FieldInfo fieldInfo in shaderFields)
             {
-                LoadFieldInfo(shader, fieldInfo, d3D12DescriptorRanges1);
+                LoadFieldInfo(shader, fieldInfo, bindings);
             }
 
-            return d3D12DescriptorRanges1.ToArray();
+            return bindings.ToArray();
         }
 
         /// <summary>
@@ -195,15 +210,15 @@ namespace ComputeSharp.Shaders.Translation
         /// </summary>
         /// <param name="shader">The boxed <typeparamref name="T"/> instance to use to build the shader.</param>
         /// <param name="fieldInfo">The target <see cref="FieldInfo"/> to load.</param>
-        /// <param name="d3D12DescriptorRanges1">The list of discovered <see cref="D3D12_DESCRIPTOR_RANGE1"/> values.</param>
-        private void LoadFieldInfo(object shader, FieldInfo fieldInfo, List<D3D12_DESCRIPTOR_RANGE1> d3D12DescriptorRanges1)
+        /// <param name="bindings">The list of discovered <see cref="ShaderResourceBinding"/> values.</param>
+        private void LoadFieldInfo(object shader, FieldInfo fieldInfo, List<ShaderResourceBinding> bindings)
         {
             Type fieldType = fieldInfo.FieldType;
             (string hlslName, string hlslType) = Attribute.Fields[fieldInfo.Name];
 
             if (HlslKnownTypes.IsConstantBufferType(fieldType))
             {
-                d3D12DescriptorRanges1.Add(new D3D12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, this.constantBuffersCount));
+                bindings.Add(new ShaderResourceBinding(ResourceType.Constant, this.constantBuffersCount, 0));
 
                 this.capturedFields.Add(fieldInfo);
                 this.hlslResourceInfo.Add(new HlslResourceInfo.Constant(hlslType, hlslName, (int)this.constantBuffersCount++));
@@ -211,7 +226,7 @@ namespace ComputeSharp.Shaders.Translation
             }
             else if (HlslKnownTypes.IsReadOnlyResourceType(fieldType))
             {
-                d3D12DescriptorRanges1.Add(new D3D12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, this.readOnlyBuffersCount));
+                bindings.Add(new ShaderResourceBinding(ResourceType.ReadOnly, this.readOnlyBuffersCount, 0));
 
                 this.capturedFields.Add(fieldInfo);
                 this.hlslResourceInfo.Add(new HlslResourceInfo.ReadOnly(hlslType, hlslName, (int)this.readOnlyBuffersCount++));
@@ -219,7 +234,7 @@ namespace ComputeSharp.Shaders.Translation
             }
             else if (HlslKnownTypes.IsReadWriteResourceType(fieldType))
             {
-                d3D12DescriptorRanges1.Add(new D3D12_DESCRIPTOR_RANGE1(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, this.readWriteBuffersCount));
+                bindings.Add(new ShaderResourceBinding(ResourceType.ReadWrite, this.readWriteBuffersCount, 0));
 
                 this.capturedFields.Add(fieldInfo);
                 this.hlslResourceInfo.Add(new HlslResourceInfo.ReadWrite(hlslType, hlslName, (int)this.readWriteBuffersCount++));

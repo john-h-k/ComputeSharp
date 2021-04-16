@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using Voltium.Core.Devices;
 
 namespace ComputeSharp.Interop
 {
@@ -8,6 +9,15 @@ namespace ComputeSharp.Interop
     /// </summary>
     public abstract class NativeObject : IDisposable
     {
+        protected INativeDevice device;
+
+        internal INativeDevice NativeDevice => this.device;
+
+        public NativeObject(INativeDevice device)
+        {
+            this.device = device;
+        }
+
         /// <summary>
         /// Releases unmanaged resources and performs other cleanup operations.
         /// </summary>

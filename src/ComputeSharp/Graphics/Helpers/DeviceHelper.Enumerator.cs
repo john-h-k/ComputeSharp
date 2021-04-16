@@ -5,10 +5,8 @@ using ComputeSharp.Core.Extensions;
 using ComputeSharp.Graphics.Extensions;
 using ComputeSharp.Interop;
 using TerraFX.Interop;
-using FX = TerraFX.Interop.Windows;
 using HRESULT = System.Int32;
-using static TerraFX.Interop.D3D_FEATURE_LEVEL;
-using static TerraFX.Interop.D3D_SHADER_MODEL;
+using FX = TerraFX.Interop.Windows;
 
 namespace ComputeSharp.Graphics.Helpers
 {
@@ -49,7 +47,7 @@ namespace ComputeSharp.Graphics.Helpers
             /// <summary>
             /// The enumerator type for a <see cref="DeviceQuery"/> instance.
             /// </summary>
-            private sealed unsafe class Enumerator : NativeObject, IEnumerator<GraphicsDevice>
+            private sealed unsafe class Enumerator : IDisposable, IEnumerator<GraphicsDevice>
             {
                 /// <summary>
                 /// The <see cref="Predicate{T}"/> instance to use to select devices to create.
@@ -136,15 +134,7 @@ namespace ComputeSharp.Graphics.Helpers
                             if (FX.SUCCEEDED(createDeviceResult) &&
                                 this.predicate(new GraphicsDeviceInfo(&dxgiDescription1)))
                             {
-                                using ComPtr<ID3D12Device> d3D12Device = default;
-
-                                FX.D3D12CreateDevice(
-                                    dxgiAdapter1.AsIUnknown().Get(),
-                                    D3D_FEATURE_LEVEL_11_0,
-                                    FX.__uuidof<ID3D12Device>(),
-                                    d3D12Device.GetVoidAddressOf()).Assert();
-
-                                this.graphicsDevice = GetOrCreateDevice(d3D12Device.Get(), (IDXGIAdapter*)dxgiAdapter1.Get(), &dxgiDescription1);
+                                this.graphicsDevice = GetOrCreateDevice(dxgiAdapter1.Move(), &dxgiDescription1);
                                 this.isCompleted = true;
 
                                 return true;
@@ -177,17 +167,7 @@ namespace ComputeSharp.Graphics.Helpers
                             if (FX.SUCCEEDED(createDeviceResult) &&
                                 this.predicate(new GraphicsDeviceInfo(&dxgiDescription1)))
                             {
-                                using ComPtr<ID3D12Device> d3D12Device = default;
-
-                                FX.D3D12CreateDevice(
-                                    dxgiAdapter1.AsIUnknown().Get(),
-                                    D3D_FEATURE_LEVEL_11_0,
-                                    FX.__uuidof<ID3D12Device>(),
-                                    d3D12Device.GetVoidAddressOf()).Assert();
-
-                                if (d3D12Device.Get()->IsShaderModelSupported(D3D_SHADER_MODEL_6_0))
-                                {
-                                    this.graphicsDevice = GetOrCreateDevice(d3D12Device.Get(), (IDXGIAdapter*)dxgiAdapter1.Get(), &dxgiDescription1);
+                                this.graphicsDevice = GetOrCreateDevice(dxgiAdapter1.Move(), &dxgiDescription1);
 
                                     return true;
                                 }
@@ -203,11 +183,9 @@ namespace ComputeSharp.Graphics.Helpers
                 }
 
                 /// <inheritdoc/>
-                protected override bool OnDispose()
+                public void Dispose()
                 {
                     this.dxgiFactory4.Dispose();
-
-                    return true;
                 }
             }
         }

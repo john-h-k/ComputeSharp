@@ -2,17 +2,13 @@
 using ComputeSharp.__Internals;
 using ComputeSharp.Exceptions;
 using ComputeSharp.Graphics.Commands;
-using ComputeSharp.Graphics.Extensions;
 using ComputeSharp.Graphics.Helpers;
-using ComputeSharp.Graphics.Resources.Interop;
 using ComputeSharp.Interop;
 using Microsoft.Toolkit.Diagnostics;
-using TerraFX.Interop;
-using static TerraFX.Interop.D3D12_COMMAND_LIST_TYPE;
-using static TerraFX.Interop.D3D12_RESOURCE_STATES;
-using static TerraFX.Interop.D3D12_SRV_DIMENSION;
-using static TerraFX.Interop.D3D12_UAV_DIMENSION;
-using FX = TerraFX.Interop.Windows;
+using Voltium.Core;
+using Voltium.Core.Devices;
+using Voltium.Core.Memory;
+using Voltium.Core.NativeApi;
 using ResourceType = ComputeSharp.Graphics.Resources.Enums.ResourceType;
 
 #pragma warning disable CS0618
@@ -27,34 +23,27 @@ namespace ComputeSharp.Resources
         where T : unmanaged
     {
         /// <summary>
-        /// The <see cref="ID3D12Resource"/> instance currently mapped.
+        /// The <see cref="TextureHandle"/> instance currently mapped.
         /// </summary>
-        private ComPtr<ID3D12Resource> d3D12Resource;
+        private TextureHandle resource;
+        /// <summary>
+        /// The <see cref="DescriptorSetHandle"/> instance currently mapped.
+        /// </summary>
+        private DescriptorSetHandle descriptor;
 
         /// <summary>
-        /// The <see cref="D3D12_CPU_DESCRIPTOR_HANDLE"/> instance for the current resource.
+        /// The default <see cref="ResourceState"/> value for the current resource.
         /// </summary>
-        private readonly D3D12_CPU_DESCRIPTOR_HANDLE D3D12CpuDescriptorHandle;
+        private readonly ResourceState resourceState;
 
         /// <summary>
-        /// The <see cref="D3D12_GPU_DESCRIPTOR_HANDLE"/> instance for the current resource.
+        /// Whether to use compute for copy operations.
         /// </summary>
-        internal readonly D3D12_GPU_DESCRIPTOR_HANDLE D3D12GpuDescriptorHandle;
+        private readonly bool useCopy;
 
-        /// <summary>
-        /// The default <see cref="D3D12_RESOURCE_STATES"/> value for the current resource.
-        /// </summary>
-        private readonly D3D12_RESOURCE_STATES d3D12ResourceState;
 
-        /// <summary>
-        /// The <see cref="D3D12_COMMAND_LIST_TYPE"/> value to use for copy operations.
-        /// </summary>
-        private readonly D3D12_COMMAND_LIST_TYPE d3D12CommandListType;
-
-        /// <summary>
-        /// The <see cref="D3D12_PLACED_SUBRESOURCE_FOOTPRINT"/> description for the current resource.
-        /// </summary>
-        private readonly D3D12_PLACED_SUBRESOURCE_FOOTPRINT d3D12PlacedSubresourceFootprint;
+        private readonly TextureFootprint footprint;
+        private readonly uint bufferSize;
 
         /// <summary>
         /// The <see cref="D3D12MA_Allocation"/> instance used to retrieve <see cref="d3D12Resource"/>, if any.
@@ -71,74 +60,54 @@ namespace ComputeSharp.Resources
         /// <param name="depth">The depth of the texture.</param>
         /// <param name="resourceType">The resource type for the current texture.</param>
         /// <param name="allocationMode">The allocation mode to use for the new resource.</param>
-        /// <param name="d3D12FormatSupport">The format support for the current texture type.</param>
-        private protected Texture3D(GraphicsDevice device, int width, int height, int depth, ResourceType resourceType, AllocationMode allocationMode, D3D12_FORMAT_SUPPORT1 d3D12FormatSupport)
+        /// <param name="formatSupport">The format support for the current texture type.</param>
+        private protected Texture3D(GraphicsDevice device, int width, int height, int depth, ResourceType resourceType, AllocationMode allocationMode, FormatSupport formatSupport) : base(device.NativeDevice)
         {
             device.ThrowIfDisposed();
 
-            Guard.IsBetweenOrEqualTo(width, 1, FX.D3D12_REQ_TEXTURE3D_U_V_OR_W_DIMENSION, nameof(width));
-            Guard.IsBetweenOrEqualTo(height, 1, FX.D3D12_REQ_TEXTURE3D_U_V_OR_W_DIMENSION, nameof(height));
-            Guard.IsBetweenOrEqualTo(depth, 1, FX.D3D12_REQ_TEXTURE3D_U_V_OR_W_DIMENSION, nameof(depth));
+            Guard.IsBetweenOrEqualTo(width, 1, GraphicsDevice.Max3DTextureDimensionSize, nameof(width));
+            Guard.IsBetweenOrEqualTo(height, 1, GraphicsDevice.Max3DTextureDimensionSize, nameof(height));
+            Guard.IsBetweenOrEqualTo(depth, 1, GraphicsDevice.Max3DTextureDimensionSize, nameof(depth));
 
-            if (!device.D3D12Device->IsDxgiFormatSupported(DXGIFormatHelper.GetForType<T>(), d3D12FormatSupport))
+            if (!device.NativeDevice.SupportsFormat(DataFormatHelper.GetForType<T>(), formatSupport))
             {
                 UnsupportedTextureTypeException.ThrowForTexture2D<T>();
             }
 
             GraphicsDevice = device;
 
-            if (device.IsCacheCoherentUMA)
+            var isWrite = resourceType == ResourceType.ReadWrite;
+
+            var desc = new TextureDesc
             {
-                this.d3D12Resource = device.D3D12Device->CreateCommittedResource(
-                    resourceType,
-                    allocationMode,
-                    DXGIFormatHelper.GetForType<T>(),
-                    (uint)width,
-                    (uint)height,
-                    (ushort)depth,
-                    true,
-                    out this.d3D12ResourceState);
-            }
-            else
+                Dimension = TextureDimension.Tex3D,
+                Width = (ulong)width,
+                Height = (uint)height,
+                DepthOrArraySize = (ushort)depth,
+                ResourceFlags = isWrite ? ResourceFlags.AllowUnorderedAccess : ResourceFlags.None,
+                Format = DataFormatHelper.GetForType<T>(),
+                Layout = TextureLayout.Optimal,
+                MipCount = 1
+            };
+
+            this.resource = device.NativeDevice.AllocateTexture(
+                desc,
+                ResourceState.Common);
+
+            this.descriptor = device.NativeDevice.CreateDescriptor(this.resource, resourceType);
+            this.useCopy = resourceType != ResourceType.ReadWrite;
+
+            this.footprint = new TextureFootprint
             {
-                this.allocation = device.Allocator->CreateResource(
-                    resourceType,
-                    allocationMode,
-                    DXGIFormatHelper.GetForType<T>(),
-                    (uint)width,
-                    (uint)height,
-                    (ushort)depth,
-                    out this.d3D12ResourceState);
+                Format = DataFormatHelper.GetForType<T>(),
+                Width = (uint)width,
+                Height = (uint)height,
+                Depth = (uint)depth,
+                RowSize = DataFormatHelper.RowSize<T>((uint)width),
+                RowPitch = DataFormatHelper.AlignedRowPitch<T>((uint)width),
+            };
 
-                this.d3D12Resource = new ComPtr<ID3D12Resource>(this.allocation.Get()->GetResource());
-            }
-
-            this.d3D12CommandListType = this.d3D12ResourceState == D3D12_RESOURCE_STATE_COMMON
-                ? D3D12_COMMAND_LIST_TYPE_COPY
-                : D3D12_COMMAND_LIST_TYPE_COMPUTE;
-
-            device.D3D12Device->GetCopyableFootprint(
-                DXGIFormatHelper.GetForType<T>(),
-                (uint)width,
-                (uint)height,
-                (ushort)depth,
-                out this.d3D12PlacedSubresourceFootprint,
-                out _,
-                out _);
-
-            device.RentShaderResourceViewDescriptorHandles(out D3D12CpuDescriptorHandle, out D3D12GpuDescriptorHandle);
-
-            switch (resourceType)
-            {
-                case ResourceType.ReadOnly:
-                    device.D3D12Device->CreateShaderResourceView(this.d3D12Resource.Get(), DXGIFormatHelper.GetForType<T>(), D3D12_SRV_DIMENSION_TEXTURE3D, D3D12CpuDescriptorHandle);
-                    break;
-                case ResourceType.ReadWrite:
-                    device.D3D12Device->CreateUnorderedAccessView(this.d3D12Resource.Get(), DXGIFormatHelper.GetForType<T>(), D3D12_UAV_DIMENSION_TEXTURE3D, D3D12CpuDescriptorHandle);
-                    break;
-            }
-
-            this.d3D12Resource.Get()->SetName(this);
+            this.bufferSize = this.footprint.RowPitch * this.footprint.Height * this.footprint.Depth;
         }
 
         /// <summary>
@@ -149,22 +118,27 @@ namespace ComputeSharp.Resources
         /// <summary>
         /// Gets the width of the current texture.
         /// </summary>
-        public int Width => (int)this.d3D12PlacedSubresourceFootprint.Footprint.Width;
+        public int Width => (int)this.footprint.Width;
 
         /// <summary>
         /// Gets the height of the current texture.
         /// </summary>
-        public int Height => (int)this.d3D12PlacedSubresourceFootprint.Footprint.Height;
+        public int Height => (int)this.footprint.Height;
 
         /// <summary>
         /// Gets the depth of the current texture.
         /// </summary>
-        public int Depth => (int)this.d3D12PlacedSubresourceFootprint.Footprint.Depth;
+        public int Depth => (int)this.footprint.Depth;
 
         /// <summary>
-        /// Gets the <see cref="ID3D12Resource"/> instance currently mapped.
+        /// Gets the <see cref="TextureHandle"/> instance currently mapped.
         /// </summary>
-        internal ID3D12Resource* D3D12Resource => this.d3D12Resource;
+        internal TextureHandle Resource => this.resource;
+
+        /// <summary>
+        /// Gets the <see cref="DescriptorSetHandle"/> instance currently mapped.
+        /// </summary>
+        internal DescriptorSetHandle Descriptor => this.descriptor;
 
         /// <summary>
         /// Reads the contents of the specified range from the current <see cref="Texture3D{T}"/> instance and writes them into a target memory area.
@@ -194,70 +168,55 @@ namespace ComputeSharp.Resources
             Guard.IsLessThanOrEqualTo(z + depth, Depth, nameof(z));
             Guard.IsGreaterThanOrEqualTo(size, (nint)width * height * depth, nameof(size));
 
-            GraphicsDevice.D3D12Device->GetCopyableFootprint(
-                DXGIFormatHelper.GetForType<T>(),
-                (uint)width,
-                (uint)height,
-                (ushort)depth,
-                out D3D12_PLACED_SUBRESOURCE_FOOTPRINT d3D12PlacedSubresourceFootprintDestination,
-                out ulong rowSizeInBytes,
-                out ulong totalSizeInBytes);
 
-            using UniquePtr<D3D12MA_Allocation> allocation = default;
-            using ComPtr<ID3D12Resource> d3D12Resource = default;
 
-            if (GraphicsDevice.IsCacheCoherentUMA)
+            var desc = new BufferDesc { Length = this.bufferSize, ResourceFlags = ResourceFlags.None };
+            var intermediate = this.device.AllocateBuffer(desc, MemoryAccess.CpuReadback);
+
+            var copyCommandList = CommandList.Create();
+
+            if (!this.useCopy)
             {
-                *&d3D12Resource = GraphicsDevice.D3D12Device->CreateCommittedResource(ResourceType.ReadBack, AllocationMode.Default, totalSizeInBytes, true);
-            }
-            else
-            {
-                *&allocation = GraphicsDevice.Allocator->CreateResource(ResourceType.ReadBack, AllocationMode.Default, totalSizeInBytes);
-                *&d3D12Resource = new ComPtr<ID3D12Resource>(allocation.Get()->GetResource());
+                copyCommandList.ResourceTransition(this.resource, this.resourceState, ResourceState.CopySource);
             }
 
-            using (CommandList copyCommandList = new(GraphicsDevice, this.d3D12CommandListType))
+            copyCommandList.CopyTextureToBuffer(
+                this.footprint.Format,
+                this.resource,
+                0,
+                intermediate,
+                0,
+                this.footprint,
+                destX: 0,
+                destY: 0,
+                destZ: 0,
+                sourceX: (uint)x,
+                sourceY: (uint)y,
+                sourceZ: (ushort)z);
+
+            if (!this.useCopy)
             {
-                if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
-                {
-                    copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, this.d3D12ResourceState, D3D12_RESOURCE_STATE_COPY_SOURCE);
-                }
-
-                copyCommandList.D3D12GraphicsCommandList->CopyTextureRegion(
-                    d3D12ResourceDestination: d3D12Resource.Get(),
-                    &d3D12PlacedSubresourceFootprintDestination,
-                    destinationX: 0,
-                    destinationY: 0,
-                    destinationZ: 0,
-                    d3D12ResourceSource: D3D12Resource,
-                    sourceX: (uint)x,
-                    sourceY: (uint)y,
-                    sourceZ: (ushort)z,
-                    (uint)width,
-                    (uint)height,
-                    (ushort)depth);
-
-                if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
-                {
-                    copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, D3D12_RESOURCE_STATE_COPY_SOURCE, this.d3D12ResourceState);
-                }
-
-                copyCommandList.ExecuteAndWaitForCompletion();
+                copyCommandList.ResourceTransition(this.resource, ResourceState.CopySource, this.resourceState);
             }
 
-            using ID3D12ResourceMap resource = d3D12Resource.Get()->Map();
+            var task = this.useCopy ? this.GraphicsDevice.ExecuteCopy(copyCommandList.Buffer) : this.GraphicsDevice.ExecuteCompute(copyCommandList.Buffer);
+            task.Block();
+
+            var pointer = this.device.Map(intermediate);
 
             fixed (void* destinationPointer = &destination)
             {
                 MemoryHelper.Copy(
-                    resource.Pointer,
+                    pointer,
                     (uint)height,
                     (uint)depth,
-                    rowSizeInBytes,
-                    d3D12PlacedSubresourceFootprintDestination.Footprint.RowPitch,
-                    d3D12PlacedSubresourceFootprintDestination.Footprint.RowPitch * (uint)height,
+                    this.footprint.RowSize,
+                    this.footprint.RowPitch,
+                    this.footprint.RowPitch * (uint)height,
                     destinationPointer);
             }
+
+            this.device.DisposeBuffer(intermediate);
         }
 
         /// <summary>
@@ -301,36 +260,34 @@ namespace ComputeSharp.Resources
             Guard.IsLessThanOrEqualTo(sourceY + height, Height, nameof(sourceY));
             Guard.IsLessThanOrEqualTo(sourceZ + depth, Depth, nameof(sourceZ));
 
-            using CommandList copyCommandList = new(GraphicsDevice, this.d3D12CommandListType);
+            var copyCommandList = CommandList.Create();
 
-            if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+            if (!this.useCopy)
             {
-                copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, this.d3D12ResourceState, D3D12_RESOURCE_STATE_COPY_SOURCE);
+                copyCommandList.ResourceTransition(this.resource, this.resourceState, ResourceState.CopySource);
             }
 
-            fixed (D3D12_PLACED_SUBRESOURCE_FOOTPRINT* d3D12PlacedSubresourceFootprintDestination = &destination.D3D12PlacedSubresourceFootprint)
+            copyCommandList.CopyTextureToBuffer(
+                this.footprint.Format,
+                this.resource,
+                0,
+                destination.Resource,
+                0,
+                this.footprint,
+                (uint)destinationX,
+                (uint)destinationY,
+                (ushort)destinationZ,
+                (uint)sourceX,
+                (uint)sourceY,
+                (ushort)sourceZ);
+
+            if (!this.useCopy)
             {
-                copyCommandList.D3D12GraphicsCommandList->CopyTextureRegion(
-                    d3D12ResourceDestination: destination.D3D12Resource,
-                    d3D12PlacedSubresourceFootprintDestination,
-                    (uint)destinationX,
-                    (uint)destinationY,
-                    (ushort)destinationZ,
-                    d3D12ResourceSource: D3D12Resource,
-                    (uint)sourceX,
-                    (uint)sourceY,
-                    (ushort)sourceZ,
-                    (uint)width,
-                    (uint)height,
-                    (ushort)depth);
+                copyCommandList.ResourceTransition(this.resource, ResourceState.CopySource, this.resourceState);
             }
 
-            if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
-            {
-                copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, D3D12_RESOURCE_STATE_COPY_SOURCE, this.d3D12ResourceState);
-            }
-
-            copyCommandList.ExecuteAndWaitForCompletion();
+            var task = this.useCopy ? this.GraphicsDevice.ExecuteCopy(copyCommandList.Buffer) : this.GraphicsDevice.ExecuteCompute(copyCommandList.Buffer);
+            task.Block();
         }
 
         /// <summary>
@@ -361,68 +318,54 @@ namespace ComputeSharp.Resources
             Guard.IsLessThanOrEqualTo(z + depth, Depth, nameof(z));
             Guard.IsGreaterThanOrEqualTo(size, (nint)width * height * depth, nameof(size));
 
-            GraphicsDevice.D3D12Device->GetCopyableFootprint(
-                DXGIFormatHelper.GetForType<T>(),
-                (uint)width,
-                (uint)height,
-                (ushort)depth,
-                out D3D12_PLACED_SUBRESOURCE_FOOTPRINT d3D12PlacedSubresourceFootprintSource,
-                out ulong rowSizeInBytes,
-                out ulong totalSizeInBytes);
+            var desc = new BufferDesc { Length = this.bufferSize, ResourceFlags = ResourceFlags.None };
+            var intermediate = this.device.AllocateBuffer(desc, MemoryAccess.CpuUpload);
 
-            using UniquePtr<D3D12MA_Allocation> allocation = default;
-            using ComPtr<ID3D12Resource> d3D12Resource = default;
+            var pointer = this.device.Map(intermediate);
 
-            if (GraphicsDevice.IsCacheCoherentUMA)
-            {
-                *&d3D12Resource = GraphicsDevice.D3D12Device->CreateCommittedResource(ResourceType.Upload, AllocationMode.Default, totalSizeInBytes, true);
-            }
-            else
-            {
-                *&allocation = GraphicsDevice.Allocator->CreateResource(ResourceType.Upload, AllocationMode.Default, totalSizeInBytes);
-                *&d3D12Resource = new ComPtr<ID3D12Resource>(allocation.Get()->GetResource());
-            }
-
-            using (ID3D12ResourceMap resource = d3D12Resource.Get()->Map())
             fixed (void* sourcePointer = &source)
             {
                 MemoryHelper.Copy(
                     sourcePointer,
-                    resource.Pointer,
+                    pointer,
                     (uint)height,
                     (uint)depth,
-                    rowSizeInBytes,
-                    d3D12PlacedSubresourceFootprintSource.Footprint.RowPitch,
-                    d3D12PlacedSubresourceFootprintSource.Footprint.RowPitch * (uint)height);
+                    this.footprint.RowSize,
+                    this.footprint.RowPitch,
+                    this.footprint.RowPitch * (uint)height);
             }
 
-            using CommandList copyCommandList = new(GraphicsDevice, this.d3D12CommandListType);
+            var copyCommandList = CommandList.Create();
 
-            if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+            if (!this.useCopy)
             {
-                copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, this.d3D12ResourceState, D3D12_RESOURCE_STATE_COPY_DEST);
+                copyCommandList.ResourceTransition(this.resource, this.resourceState, ResourceState.CopyDestination);
             }
 
-            copyCommandList.D3D12GraphicsCommandList->CopyTextureRegion(
-                d3D12ResourceDestination: D3D12Resource,
-                destinationX: (uint)x,
-                destinationY: (uint)y,
-                destinationZ: (ushort)z,
-                d3D12ResourceSource: d3D12Resource.Get(),
-                &d3D12PlacedSubresourceFootprintSource,
+            copyCommandList.CopyBufferToTexture(
+                this.footprint.Format,
+                intermediate,
+                0,
+                this.resource,
+                this.footprint,
+                0,
+                destX: (uint)x,
+                destY: (uint)y,
+                destZ: (ushort)z,
                 sourceX: 0,
                 sourceY: 0,
-                sourceZ: 0,
-                (uint)width,
-                (uint)height,
-                (ushort)depth);
+                sourceZ: 0);
 
-            if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+
+            if (!this.useCopy)
             {
-                copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, D3D12_RESOURCE_STATE_COPY_DEST, this.d3D12ResourceState);
+                copyCommandList.ResourceTransition(this.resource, ResourceState.CopyDestination, this.resourceState);
             }
 
-            copyCommandList.ExecuteAndWaitForCompletion();
+            var task = this.useCopy ? this.GraphicsDevice.ExecuteCopy(copyCommandList.Buffer) : this.GraphicsDevice.ExecuteCompute(copyCommandList.Buffer);
+            task.Block();
+
+            this.device.DisposeBuffer(intermediate);
         }
 
         /// <summary>
@@ -466,48 +409,41 @@ namespace ComputeSharp.Resources
             Guard.IsLessThanOrEqualTo(destinationY + height, Height, nameof(destinationY));
             Guard.IsLessThanOrEqualTo(destinationZ + depth, Depth, nameof(destinationZ));
 
-            using CommandList copyCommandList = new(GraphicsDevice, this.d3D12CommandListType);
+            var copyCommandList = CommandList.Create();
 
-            if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
+
+            if (!this.useCopy)
             {
-                copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, this.d3D12ResourceState, D3D12_RESOURCE_STATE_COPY_DEST);
+                copyCommandList.ResourceTransition(this.resource, this.resourceState, ResourceState.CopyDestination);
             }
 
-            fixed (D3D12_PLACED_SUBRESOURCE_FOOTPRINT* d3D12PlacedSubresourceFootprintSource = &source.D3D12PlacedSubresourceFootprint)
+            copyCommandList.CopyBufferToTexture(
+                this.footprint.Format,
+                source.Resource,
+                0,
+                this.resource,
+                this.footprint,
+                0,
+                (uint)destinationX,
+                (uint)destinationY,
+                (ushort)destinationZ,
+                (uint)sourceX,
+                (uint)sourceY,
+                (ushort)sourceZ);
+
+            if (!this.useCopy)
             {
-                copyCommandList.D3D12GraphicsCommandList->CopyTextureRegion(
-                    d3D12ResourceDestination: D3D12Resource,
-                    (uint)destinationX,
-                    (uint)destinationY,
-                    (ushort)destinationZ,
-                    d3D12ResourceSource: source.D3D12Resource,
-                    d3D12PlacedSubresourceFootprintSource,
-                    (uint)sourceX,
-                    (uint)sourceY,
-                    (ushort)sourceZ,
-                    (uint)width,
-                    (uint)height,
-                    (ushort)depth);
+                copyCommandList.ResourceTransition(this.resource, ResourceState.CopyDestination, this.resourceState);
             }
 
-            if (copyCommandList.D3D12CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE)
-            {
-                copyCommandList.D3D12GraphicsCommandList->ResourceBarrier(D3D12Resource, D3D12_RESOURCE_STATE_COPY_DEST, this.d3D12ResourceState);
-            }
-
-            copyCommandList.ExecuteAndWaitForCompletion();
+            var task = this.useCopy ? this.GraphicsDevice.ExecuteCopy(copyCommandList.Buffer) : this.GraphicsDevice.ExecuteCompute(copyCommandList.Buffer);
+            task.Block();
         }
 
         /// <inheritdoc/>
         protected override bool OnDispose()
         {
-            this.d3D12Resource.Dispose();
-            this.allocation.Dispose();
-
-            if (GraphicsDevice?.IsDisposed == false)
-            {
-                GraphicsDevice.ReturnShaderResourceViewDescriptorHandles(D3D12CpuDescriptorHandle, D3D12GpuDescriptorHandle);
-            }
+            this?.device.DisposeTexture(this.resource);
 
             return true;
         }
@@ -525,12 +461,12 @@ namespace ComputeSharp.Resources
         }
 
         /// <inheritdoc/>
-        D3D12_GPU_DESCRIPTOR_HANDLE GraphicsResourceHelper.IGraphicsResource.ValidateAndGetGpuDescriptorHandle(GraphicsDevice device)
+        DescriptorSetHandle GraphicsResourceHelper.IGraphicsResource.ValidateAndGetDescriptorSetHandle(GraphicsDevice device)
         {
             ThrowIfDisposed();
             ThrowIfDeviceMismatch(device);
 
-            return D3D12GpuDescriptorHandle;
+            return this.descriptor;
         }
     }
 }

@@ -2,10 +2,11 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using ComputeSharp.Exceptions;
-using ComputeSharp.Graphics.Extensions;
 using ComputeSharp.Interop;
 using Microsoft.Toolkit.Diagnostics;
-using TerraFX.Interop;
+using Voltium.Core;
+using Voltium.Core.Memory;
+using Voltium.Core.NativeApi;
 using ResourceType = ComputeSharp.Graphics.Resources.Enums.ResourceType;
 
 namespace ComputeSharp.Resources
@@ -18,9 +19,9 @@ namespace ComputeSharp.Resources
         where T : unmanaged
     {
         /// <summary>
-        /// The <see cref="ID3D12Resource"/> instance currently mapped.
+        /// The <see cref="BufferHandle"/> instance currently mapped.
         /// </summary>
-        private ComPtr<ID3D12Resource> d3D12Resource;
+        private BufferHandle resource;
 
         /// <summary>
         /// The pointer to the start of the mapped buffer data.
@@ -40,7 +41,7 @@ namespace ComputeSharp.Resources
         /// <param name="length">The number of items to store in the current buffer.</param>
         /// <param name="resourceType">The resource type for the current buffer.</param>
         /// <param name="allocationMode">The allocation mode to use for the new resource.</param>
-        private protected TransferBuffer(GraphicsDevice device, int length, ResourceType resourceType, AllocationMode allocationMode)
+        private protected TransferBuffer(GraphicsDevice device, int length, ResourceType resourceType, AllocationMode allocationMode) : base(device.NativeDevice)
         {
             device.ThrowIfDisposed();
 
@@ -52,19 +53,10 @@ namespace ComputeSharp.Resources
 
             ulong sizeInBytes = (uint)length * (uint)sizeof(T);
 
-            if (device.IsCacheCoherentUMA)
-            {
-                this.d3D12Resource = device.D3D12Device->CreateCommittedResource(resourceType, allocationMode, sizeInBytes, true);
-            }
-            else
-            {
-                this.allocation = device.Allocator->CreateResource(resourceType, allocationMode, sizeInBytes);
-                this.d3D12Resource = new ComPtr<ID3D12Resource>(this.allocation.Get()->GetResource());
-            }
+            var desc = new BufferDesc { Length = sizeInBytes, ResourceFlags = resourceType == ResourceType.ReadWrite ? ResourceFlags.AllowUnorderedAccess : ResourceFlags.None };
 
-            this.mappedData = (T*)this.d3D12Resource.Get()->Map().Pointer;
-
-            this.d3D12Resource.Get()->SetName(this);
+            this.resource = device.NativeDevice.AllocateBuffer(desc, MemoryAccess.CpuUpload);
+            this.mappedData = (T*)device.NativeDevice.Map(this.resource);
         }
 
         /// <summary>
@@ -78,9 +70,9 @@ namespace ComputeSharp.Resources
         public int Length { get; }
 
         /// <summary>
-        /// Gets the <see cref="ID3D12Resource"/> instance currently mapped.
+        /// Gets the <see cref="BufferHandle"/> instance currently mapped.
         /// </summary>
-        internal ID3D12Resource* D3D12Resource => this.d3D12Resource;
+        internal BufferHandle Resource => this.resource;
 
         /// <summary>
         /// Gets the pointer to the start of the mapped buffer data.
@@ -114,8 +106,7 @@ namespace ComputeSharp.Resources
         /// <inheritdoc/>
         protected override bool OnDispose()
         {
-            this.d3D12Resource.Dispose();
-            this.allocation.Dispose();
+            this.device.DisposeBuffer(this.resource);
 
             return true;
         }

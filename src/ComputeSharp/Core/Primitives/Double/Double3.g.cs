@@ -1,5 +1,14 @@
-﻿using System;
+﻿
+
+
+
+
+
+
+
+using System;
 using System.Globalization;
+
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -29,6 +38,7 @@ namespace ComputeSharp
 
         [FieldOffset(16)]
         private double z;
+
 
         /// <summary>
         /// Gets a reference to a specific component in the current <see cref="Double3"/> instance.
@@ -1471,6 +1481,7 @@ namespace ComputeSharp
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public readonly ref readonly Double4 BBBB => ref *(Double4*)UndefinedData;
 
+
         /// <inheritdoc/>
         public override readonly string ToString()
         {
@@ -1485,17 +1496,19 @@ namespace ComputeSharp
             string separator = NumberFormatInfo.GetInstance(formatProvider).NumberGroupSeparator;
 
             sb.Append('<');
-            sb.Append(this.x.ToString(format, formatProvider));
+sb.Append(this.x.ToString(format, formatProvider));
             sb.Append(separator);
             sb.Append(' ');
             sb.Append(this.y.ToString(format, formatProvider));
             sb.Append(separator);
             sb.Append(' ');
             sb.Append(this.z.ToString(format, formatProvider));
+
             sb.Append('>');
 
             return sb.ToString();
         }
+
 
         /// <summary>
         /// Negates a <see cref="Double3"/> value.
@@ -1503,6 +1516,7 @@ namespace ComputeSharp
         /// <param name="xyz">The <see cref="Double3"/> value to negate.</param>
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public static Double3 operator -(Double3 xyz) => default;
+
 
         /// <summary>
         /// Sums two <see cref="Double3"/> values.
@@ -1535,5 +1549,6 @@ namespace ComputeSharp
         /// <param name="right">The second <see cref="Double3"/> value to subtract.</param>
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public static Double3 operator -(Double3 left, Double3 right) => default;
+
     }
 }

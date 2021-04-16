@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 #if DEBUG
 using ComputeSharp.Graphics.Extensions;
-#endif
 using TerraFX.Interop;
+using Voltium.Core.Devices;
+#endif
+
 
 namespace ComputeSharp.Graphics.Helpers
 {
@@ -28,7 +30,7 @@ namespace ComputeSharp.Graphics.Helpers
         /// <param name="dxgiAdapter">The <see cref="IDXGIAdapter"/> that <paramref name="d3D12Device"/> was created from.</param>
         /// <param name="dxgiDescription1">The available info for the <see cref="GraphicsDevice"/> instance.</param>
         /// <returns>A <see cref="GraphicsDevice"/> instance for the input device.</returns>
-        private static unsafe GraphicsDevice GetOrCreateDevice(ID3D12Device* d3D12Device, IDXGIAdapter* dxgiAdapter, DXGI_ADAPTER_DESC1* dxgiDescription1)
+        private static unsafe GraphicsDevice GetOrCreateDevice(ComPtr<IDXGIAdapter1> adapter, DXGI_ADAPTER_DESC1* dxgiDescription1)
         {
             lock (DevicesCache)
             {
@@ -36,12 +38,12 @@ namespace ComputeSharp.Graphics.Helpers
 
                 if (!DevicesCache.TryGetValue(luid, out GraphicsDevice? device))
                 {
-                    device = new GraphicsDevice(d3D12Device, dxgiAdapter, dxgiDescription1);
+                    device = new GraphicsDevice(new D3D12NativeDevice(D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0, adapter.As<IDXGIAdapter>().Move()), dxgiDescription1);
 
                     DevicesCache.Add(luid, device);
 
 #if DEBUG
-                    D3D12InfoQueueMap.Add(luid, d3D12Device->CreateInfoQueue());
+                    //D3D12InfoQueueMap.Add(luid, d3D12Device.Get()->CreateInfoQueue());
 #endif
                 }
 
