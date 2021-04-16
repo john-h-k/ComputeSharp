@@ -1,5 +1,14 @@
-﻿using System;
+﻿
+
+
+
+
+
+
+
+using System;
 using System.Globalization;
+
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -32,6 +41,7 @@ namespace ComputeSharp
 
         [FieldOffset(12)]
         private float w;
+
 
         /// <summary>
         /// Gets a reference to a specific component in the current <see cref="Float4"/> instance.
@@ -4112,6 +4122,7 @@ namespace ComputeSharp
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public readonly ref readonly Float4 AAAA => ref *(Float4*)UndefinedData;
 
+
         /// <inheritdoc/>
         public override readonly string ToString()
         {
@@ -4126,7 +4137,7 @@ namespace ComputeSharp
             string separator = NumberFormatInfo.GetInstance(formatProvider).NumberGroupSeparator;
 
             sb.Append('<');
-            sb.Append(this.x.ToString(format, formatProvider));
+sb.Append(this.x.ToString(format, formatProvider));
             sb.Append(separator);
             sb.Append(' ');
             sb.Append(this.y.ToString(format, formatProvider));
@@ -4136,10 +4147,12 @@ namespace ComputeSharp
             sb.Append(separator);
             sb.Append(' ');
             sb.Append(this.w.ToString(format, formatProvider));
+
             sb.Append('>');
 
             return sb.ToString();
         }
+
 
         /// <summary>
         /// Negates a <see cref="Float4"/> value.
@@ -4147,6 +4160,7 @@ namespace ComputeSharp
         /// <param name="xyzw">The <see cref="Float4"/> value to negate.</param>
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public static Float4 operator -(Float4 xyzw) => default;
+
 
         /// <summary>
         /// Sums two <see cref="Float4"/> values.
@@ -4179,5 +4193,6 @@ namespace ComputeSharp
         /// <param name="right">The second <see cref="Float4"/> value to subtract.</param>
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public static Float4 operator -(Float4 left, Float4 right) => default;
+
     }
 }

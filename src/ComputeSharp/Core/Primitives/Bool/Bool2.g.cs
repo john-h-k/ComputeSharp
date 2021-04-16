@@ -1,4 +1,13 @@
-﻿using System.Runtime.CompilerServices;
+﻿
+
+
+
+
+
+
+
+
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 #if !NET5_0
@@ -24,6 +33,7 @@ namespace ComputeSharp
 
         [FieldOffset(4)]
         private bool y;
+
 
         /// <summary>
         /// Gets a reference to a specific component in the current <see cref="Bool2"/> instance.
@@ -388,19 +398,22 @@ namespace ComputeSharp
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public readonly ref readonly Bool4 GGGG => ref *(Bool4*)UndefinedData;
 
+
         /// <inheritdoc/>
         public override readonly string ToString()
         {
             StringBuilder sb = new();
 
             sb.Append('<');
-            sb.Append(this.x);
+sb.Append(this.x);
             sb.Append(", ");
             sb.Append(this.y);
+
             sb.Append('>');
 
             return sb.ToString();
         }
+
 
         /// <summary>
         /// Negates a <see cref="Bool2"/> value.
@@ -408,5 +421,6 @@ namespace ComputeSharp
         /// <param name="xy">The <see cref="Bool2"/> value to negate.</param>
         /// <remarks>This method is an intrinsic and can only be used within a shader on the GPU. Using it on the CPU is undefined behavior.</remarks>
         public static Bool2 operator !(Bool2 xy) => default;
+
     }
 }
