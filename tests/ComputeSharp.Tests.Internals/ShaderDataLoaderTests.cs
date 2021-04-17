@@ -1,5 +1,6 @@
 ﻿using ComputeSharp.__Internals;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Voltium.Core.NativeApi;
 
 #pragma warning disable CS0618
 
@@ -22,7 +23,7 @@ namespace ComputeSharp.Tests.Internals
         [TestMethod]
         public unsafe void CapturedResource()
         {
-            ulong* p0 = stackalloc ulong[128];
+            DescriptorSetHandle* p0 = stackalloc DescriptorSetHandle[128];
             byte* p1 = stackalloc byte[256];
 
             using ReadWriteBuffer<float> buffer = Gpu.Default.AllocateReadWriteBuffer<float>(16);
@@ -31,7 +32,7 @@ namespace ComputeSharp.Tests.Internals
 
             Assert.AreEqual(12, size);
 
-            Assert.AreEqual(p0[0], buffer.D3D12GpuDescriptorHandle.ptr);
+            Assert.AreEqual(p0[0], buffer.Descriptor);
         }
 
         [AutoConstructor]
@@ -51,7 +52,7 @@ namespace ComputeSharp.Tests.Internals
         [TestMethod]
         public unsafe void LoadMultipleResourcesAndPrimitives()
         {
-            ulong* p0 = stackalloc ulong[128];
+            DescriptorSetHandle* p0 = stackalloc DescriptorSetHandle[128];
             byte* p1 = stackalloc byte[256];
 
             using ReadWriteBuffer<float> buffer0 = Gpu.Default.AllocateReadWriteBuffer<float>(16);
@@ -61,8 +62,8 @@ namespace ComputeSharp.Tests.Internals
 
             Assert.AreEqual(24, size);
 
-            Assert.AreEqual(p0[0], buffer0.D3D12GpuDescriptorHandle.ptr);
-            Assert.AreEqual(p0[1], buffer1.D3D12GpuDescriptorHandle.ptr);
+            Assert.AreEqual(p0[0], buffer0.Descriptor);
+            Assert.AreEqual(p0[1], buffer1.Descriptor);
 
             Assert.AreEqual(1, *(int*)&p1[12]);
             Assert.AreEqual(22, *(int*)&p1[16]);
@@ -88,7 +89,7 @@ namespace ComputeSharp.Tests.Internals
         [TestMethod]
         public unsafe void LoadScalarAndVectorTypes()
         {
-            ulong* p0 = stackalloc ulong[128];
+            DescriptorSetHandle* p0 = stackalloc DescriptorSetHandle[128];
             byte* p1 = stackalloc byte[256];
 
             using ReadWriteBuffer<float> buffer = Gpu.Default.AllocateReadWriteBuffer<float>(16);
@@ -99,7 +100,7 @@ namespace ComputeSharp.Tests.Internals
 
             Assert.AreEqual(72, size);
 
-            Assert.AreEqual(p0[0], buffer.D3D12GpuDescriptorHandle.ptr);
+            Assert.AreEqual(p0[0], buffer.Descriptor);
 
             Assert.AreEqual(55, *(float*)&p1[16]);
             Assert.AreEqual(44, *(float*)&p1[20]);
@@ -133,7 +134,7 @@ namespace ComputeSharp.Tests.Internals
         [TestMethod]
         public unsafe void LoadScalarVectorAndMatrixTypes()
         {
-            ulong* p0 = stackalloc ulong[128];
+            DescriptorSetHandle* p0 = stackalloc DescriptorSetHandle[128];
             byte* p1 = stackalloc byte[256];
 
             using ReadWriteBuffer<float> buffer = Gpu.Default.AllocateReadWriteBuffer<float>(16);
@@ -153,7 +154,7 @@ namespace ComputeSharp.Tests.Internals
 
             Assert.AreEqual(124, size);
 
-            Assert.AreEqual(p0[0], buffer.D3D12GpuDescriptorHandle.ptr);
+            Assert.AreEqual(p0[0], buffer.Descriptor);
 
             Assert.AreEqual(55, *(float*)&p1[16]);
             Assert.AreEqual(44, *(float*)&p1[20]);
@@ -204,7 +205,7 @@ namespace ComputeSharp.Tests.Internals
         [TestMethod]
         public unsafe void LoadFlatCustomTypeShader()
         {
-            ulong* p0 = stackalloc ulong[128];
+            DescriptorSetHandle* p0 = stackalloc DescriptorSetHandle[128];
             byte* p1 = stackalloc byte[256];
 
             using ReadWriteBuffer<float> buffer = Gpu.Default.AllocateReadWriteBuffer<float>(16);
@@ -225,7 +226,7 @@ namespace ComputeSharp.Tests.Internals
 
             Assert.AreEqual(124, size);
 
-            Assert.AreEqual(p0[0], buffer.D3D12GpuDescriptorHandle.ptr);
+            Assert.AreEqual(p0[0], buffer.Descriptor);
 
             Assert.AreEqual(55, *(float*)&p1[16]);
             Assert.AreEqual(44, *(float*)&p1[20]);
@@ -288,7 +289,7 @@ namespace ComputeSharp.Tests.Internals
         [TestMethod]
         public unsafe void LoadNestedCustomTypes()
         {
-            ulong* p0 = stackalloc ulong[128];
+            DescriptorSetHandle* p0 = stackalloc DescriptorSetHandle[128];
             byte* p1 = stackalloc byte[256];
 
             using ReadWriteBuffer<float> buffer = Gpu.Default.AllocateReadWriteBuffer<float>(16);
@@ -321,7 +322,7 @@ namespace ComputeSharp.Tests.Internals
 
             Assert.AreEqual(188, size);
 
-            Assert.AreEqual(p0[0], buffer.D3D12GpuDescriptorHandle.ptr);
+            Assert.AreEqual(p0[0], buffer.Descriptor);
 
             Assert.AreEqual(3.14f, *(float*)&p1[16]);
             Assert.AreEqual(6.28f, *(float*)&p1[20]);

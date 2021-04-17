@@ -1,4 +1,5 @@
 ﻿using ComputeSharp.Interop;
+using System;
 using TerraFX.Interop;
 using Voltium.Core.Devices;
 
@@ -7,7 +8,7 @@ namespace ComputeSharp.Shaders.Translation.Interop
     /// <summary>
     /// An object wrapping an <see cref="IDxcBlob"/> instance.
     /// </summary>
-    internal sealed unsafe class IDxcBlobObject : NativeObject
+    internal sealed unsafe class IDxcBlobObject : IDisposable
     {
         /// <summary>
         /// The <see cref="IDxcBlob"/> instance currently in use.
@@ -30,11 +31,9 @@ namespace ComputeSharp.Shaders.Translation.Interop
         public CompiledShader ShaderBytecode { get; }
 
         /// <inheritdoc/>
-        protected override bool OnDispose()
+        public void Dispose()
         {
             this.dxcBlob.Dispose();
-
-            return true;
         }
     }
 }

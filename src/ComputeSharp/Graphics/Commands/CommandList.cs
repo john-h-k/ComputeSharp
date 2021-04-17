@@ -7,12 +7,13 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Voltium.Common;
 using Voltium.Core;
 using Voltium.Core.NativeApi;
 
 namespace ComputeSharp.Graphics.Commands
 {
-    internal unsafe struct CommandList
+    public unsafe struct CommandList
     {
         private ArrayBufferWriter<byte> _buffer;
         private PipelineHandle _first;
@@ -20,13 +21,24 @@ namespace ComputeSharp.Graphics.Commands
         public static CommandList Create()
             => new CommandList() { _buffer = new ArrayBufferWriter<byte>(64) };
 
+
+        public void CopyTexture(TextureHandle source, TextureHandle dest, uint subresource)
+        {
+            ref var cmd = ref Allocate<CommandTextureCopy>();
+
+            cmd.Source = source;
+            cmd.Dest = dest;
+            cmd.SourceSubresource = subresource;
+            cmd.DestSubresource = subresource;
+
+            Advance<CommandTextureCopy>();
+        }
+
         public void CopyBuffer(BufferHandle source, BufferHandle dest, uint length)
             => CopyBuffer(source, 0, dest, 0, length);
         public void CopyBuffer(BufferHandle source, uint srcOffset, BufferHandle dest, uint destOffset, uint length)
         {
-            var span = _buffer.GetSpan(sizeof(CommandBufferCopy));
-
-            ref var cmd = ref Unsafe.As<byte, CommandBufferCopy>(ref span[0]);
+            ref var cmd = ref Allocate<CommandBufferCopy>();
 
             cmd.Source = source;
             cmd.Dest = dest;
@@ -34,16 +46,13 @@ namespace ComputeSharp.Graphics.Commands
             cmd.DestOffset = destOffset;
             cmd.Length = length;
 
-            _buffer.Advance(sizeof(CommandBufferCopy));
+            Advance<CommandBufferCopy>();
         }
 
         public void ResourceTransition(TextureHandle texture, ResourceState before, ResourceState after)
         {
-            var size = sizeof(CommandTransitions) + sizeof(ResourceTransitionBarrier);
-            var span = _buffer.GetSpan(size);
-
-            ref var cmd = ref Unsafe.As<byte, CommandTransitions>(ref span[0]);
-            ref var barrier = ref Unsafe.As<byte, ResourceTransitionBarrier>(ref Unsafe.Add(ref span[0], sizeof(CommandTransitions)));
+            ref var cmd = ref Allocate<CommandTransitions, ResourceTransitionBarrier>();
+            ref var barrier = ref Unsafe.As<CommandTransitions, ResourceTransitionBarrier>(ref Unsafe.Add(ref cmd, 1));
 
             cmd.Count = 1;
             barrier.Resource = texture;
@@ -51,7 +60,7 @@ namespace ComputeSharp.Graphics.Commands
             barrier.Before = before;
             barrier.After = after;
 
-            _buffer.Advance(size);
+            Advance<CommandTransitions, ResourceTransitionBarrier>();
         }
 
         public void CopyBufferToTexture(
@@ -68,9 +77,7 @@ namespace ComputeSharp.Graphics.Commands
             uint sourceY,
             uint sourceZ)
         {
-            var span = _buffer.GetSpan(sizeof(CommandBufferToTextureCopy) + sizeof(Box));
-
-            ref var cmd = ref Unsafe.As<byte, CommandBufferToTextureCopy>(ref span[0]);
+            ref var cmd = ref Allocate<CommandBufferToTextureCopy, Box>();
             ref var box = ref Unsafe.As<CommandBufferToTextureCopy, Box>(ref Unsafe.Add(ref cmd, 1));
 
             cmd.Source = source;
@@ -94,7 +101,7 @@ namespace ComputeSharp.Graphics.Commands
             box.Bottom = sourceY + footprint.Height;
             box.Back = sourceZ + footprint.Depth;
 
-            _buffer.Advance(sizeof(CommandBufferToTextureCopy) + sizeof(Box));
+            Advance<CommandBufferToTextureCopy, Box>();
         }
 
         public void CopyBufferToTexture(
@@ -108,9 +115,7 @@ namespace ComputeSharp.Graphics.Commands
             uint destY = 0,
             uint destZ = 0)
         {
-            var span = _buffer.GetSpan(sizeof(CommandBufferToTextureCopy));
-
-            ref var cmd = ref Unsafe.As<byte, CommandBufferToTextureCopy>(ref span[0]);
+            ref var cmd = ref Allocate<CommandBufferToTextureCopy>();
 
             cmd.Source = source;
             cmd.Dest = dest;
@@ -125,7 +130,7 @@ namespace ComputeSharp.Graphics.Commands
             cmd.DestY = destY;
             cmd.DestZ = destZ;
 
-            _buffer.Advance(sizeof(CommandBufferToTextureCopy));
+            Advance<CommandBufferToTextureCopy>();
         }
 
         public void CopyTextureToBuffer(
@@ -142,9 +147,7 @@ namespace ComputeSharp.Graphics.Commands
            uint sourceY,
            uint sourceZ)
         {
-            var span = _buffer.GetSpan(sizeof(CommandTextureToBufferCopy) + sizeof(Box));
-
-            ref var cmd = ref Unsafe.As<byte, CommandTextureToBufferCopy>(ref span[0]);
+            ref var cmd = ref Allocate<CommandTextureToBufferCopy, Box>();
             ref var box = ref Unsafe.As<CommandTextureToBufferCopy, Box>(ref Unsafe.Add(ref cmd, 1));
 
             cmd.Source = source;
@@ -168,7 +171,7 @@ namespace ComputeSharp.Graphics.Commands
             box.Bottom = sourceY + footprint.Height;
             box.Back = sourceZ + footprint.Depth;
 
-            _buffer.Advance(sizeof(CommandTextureToBufferCopy) + sizeof(Box));
+            Advance<CommandTextureToBufferCopy, Box>();
         }
 
         public void CopyTextureToBuffer(
@@ -182,10 +185,7 @@ namespace ComputeSharp.Graphics.Commands
            uint destY = 0,
            uint destZ = 0)
         {
-            var span = _buffer.GetSpan(sizeof(CommandTextureToBufferCopy) + sizeof(Box));
-
-            ref var cmd = ref Unsafe.As<byte, CommandTextureToBufferCopy>(ref span[0]);
-            ref var box = ref Unsafe.As<CommandTextureToBufferCopy, Box>(ref Unsafe.Add(ref cmd, 1));
+            ref var cmd = ref Allocate<CommandTextureToBufferCopy>();
 
             cmd.Source = source;
             cmd.Dest = dest;
@@ -200,7 +200,7 @@ namespace ComputeSharp.Graphics.Commands
             cmd.DestY = destY;
             cmd.DestZ = destZ;
 
-            _buffer.Advance(sizeof(CommandTextureToBufferCopy));
+            Advance<CommandTextureToBufferCopy>();
         }
 
         public void SetPipeline(PipelineHandle handle)
@@ -210,22 +210,17 @@ namespace ComputeSharp.Graphics.Commands
                 _first = handle;
             }
 
-            var span = _buffer.GetSpan(sizeof(CommandSetPipeline));
-
-            ref var cmd = ref Unsafe.As<byte, CommandSetPipeline>(ref span[0]);
+            ref var cmd = ref Allocate<CommandSetPipeline>();
 
             cmd.Pipeline = handle;
 
-            _buffer.Advance(sizeof(CommandSetPipeline));
+            Advance<CommandSetPipeline>();
         }
 
         public void SetConstants(uint paramIndex, ReadOnlySpan<uint> data)
         {
-            var size = sizeof(CommandBind32BitConstants) + sizeof(uint) * data.Length;
-            var span = _buffer.GetSpan(size);
-
-            ref var cmd = ref Unsafe.As<byte, CommandBind32BitConstants>(ref span[0]);
-            ref var constants = ref Unsafe.As<byte, uint>(ref Unsafe.Add(ref span[0], sizeof(CommandBind32BitConstants)));
+            ref var cmd = ref Allocate<CommandBind32BitConstants, uint>(data.Length, out var size);
+            ref var constants = ref Unsafe.As<CommandBind32BitConstants, uint>(ref Unsafe.Add(ref cmd, 1));
 
             cmd.BindPoint = BindPoint.Compute;
             cmd.ParameterIndex = paramIndex;
@@ -238,11 +233,8 @@ namespace ComputeSharp.Graphics.Commands
 
         public void SetResources(uint paramIndex, ReadOnlySpan<DescriptorSetHandle> resources)
         {
-            var size = sizeof(CommandBindDescriptors) + sizeof(DescriptorSetHandle) * resources.Length;
-            var span = _buffer.GetSpan(size);
-
-            ref var cmd = ref Unsafe.As<byte, CommandBindDescriptors>(ref span[0]);
-            ref var descriptors = ref Unsafe.As<byte, DescriptorSetHandle>(ref Unsafe.Add(ref span[0], sizeof(CommandBindDescriptors)));
+            ref var cmd = ref Allocate<CommandBindDescriptors, DescriptorSetHandle>(resources.Length, out var size);
+            ref var descriptors = ref Unsafe.As<CommandBindDescriptors, DescriptorSetHandle>(ref Unsafe.Add(ref cmd, 1));
 
             cmd.BindPoint = BindPoint.Compute;
             cmd.FirstSetIndex = paramIndex;
@@ -255,15 +247,58 @@ namespace ComputeSharp.Graphics.Commands
 
         public void Dispatch(uint x, uint y, uint z)
         {
-            var span = _buffer.GetSpan(sizeof(CommandDispatch));
-
-            ref var cmd = ref Unsafe.As<byte, CommandDispatch>(ref span[0]);
+            ref var cmd = ref Allocate<CommandDispatch>();
 
             cmd.X = x;
             cmd.Y = y;
             cmd.Z = z;
 
-            _buffer.Advance(sizeof(CommandDispatch));
+            Advance<CommandDispatch>();
+        }
+
+        private int Align(int size) => MathHelpers.AlignUp(size, sizeof(CommandType));
+
+        private void Advance<TCommand>() 
+            where TCommand : unmanaged 
+            => _buffer.Advance(Align(sizeof(CommandType) + sizeof(TCommand)));
+        private void Advance<TCommand, TVariable>() 
+            where TCommand : unmanaged 
+            where TVariable : unmanaged 
+            => _buffer.Advance(Align(sizeof(CommandType) + sizeof(TCommand) + sizeof(TVariable)));
+        private void Advance(int count) => _buffer.Advance(count);
+        private void Advance<TCommand, TVariable>(int count)
+            where TCommand : unmanaged
+            where TVariable : unmanaged
+            => _buffer.Advance(Align(sizeof(CommandType) + sizeof(TCommand) + sizeof(TVariable) * count));
+
+        private ref TCommand Allocate<TCommand>() where TCommand : unmanaged, ICommand
+        {
+            var advanceSize = Align(sizeof(CommandType) + sizeof(TCommand));
+            var data = _buffer.GetSpan(advanceSize);
+
+            ref var start = ref MemoryMarshal.GetReference(data);
+            Unsafe.As<byte, CommandType>(ref start) = default(TCommand).Type;
+            return ref Unsafe.As<byte, TCommand>(ref Unsafe.Add(ref start, sizeof(CommandType)));
+        }
+
+        private ref TCommand Allocate<TCommand, TVariable>() where TCommand : unmanaged, ICommand where TVariable : unmanaged
+        {
+            var advanceSize = Align(sizeof(CommandType) + sizeof(TCommand) + sizeof(TVariable));
+            var data = _buffer.GetSpan(advanceSize);
+
+            ref var start = ref MemoryMarshal.GetReference(data);
+            Unsafe.As<byte, CommandType>(ref start) = default(TCommand).Type;
+            return ref Unsafe.As<byte, TCommand>(ref Unsafe.Add(ref start, sizeof(CommandType)));
+        }
+
+        private ref TCommand Allocate<TCommand, TVariable>(int count, out int advanceSize) where TCommand : unmanaged, ICommand where TVariable : unmanaged
+        {
+            advanceSize = Align(sizeof(CommandType) + sizeof(TCommand) + sizeof(TVariable) * (int)count);
+            var data = _buffer.GetSpan(advanceSize);
+
+            ref var start = ref MemoryMarshal.GetReference(data);
+            Unsafe.As<byte, CommandType>(ref start) = default(TCommand).Type;
+            return ref Unsafe.As<byte, TCommand>(ref Unsafe.Add(ref start, sizeof(CommandType)));
         }
 
         public CommandBuffer Buffer => new CommandBuffer { Buffer = _buffer.WrittenMemory, FirstPipeline = _first };

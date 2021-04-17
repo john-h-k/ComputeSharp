@@ -22,7 +22,7 @@ namespace ComputeSharp.Core.Extensions
         public static void Assert(this HRESULT result)
         {
 #if DEBUG
-            bool hasErrorsOrWarnings = DeviceHelper.FlushAllID3D12InfoQueueMessagesAndCheckForErrorsOrWarnings();
+            bool hasErrorsOrWarnings = false;
 
             if (result < 0)
             {

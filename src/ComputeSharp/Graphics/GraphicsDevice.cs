@@ -5,7 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using ComputeSharp.Graphics.Helpers;
 using ComputeSharp.Interop;
-using Microsoft.Toolkit.Diagnostics;
 using TerraFX.Interop;
 using Voltium.Core;
 using Voltium.Core.Devices;
@@ -167,7 +166,7 @@ namespace ComputeSharp
         => this.copyQueue.Execute(MemoryMarshal.CreateSpan(ref buff, 1), default);
 
         internal GpuTask ExecuteCompute(CommandBuffer buff)
-        => this.copyQueue.Execute(MemoryMarshal.CreateSpan(ref buff, 1), default);
+        => this.computeQueue.Execute(MemoryMarshal.CreateSpan(ref buff, 1), default);
 
         /// <inheritdoc/>
         protected override bool OnDispose()

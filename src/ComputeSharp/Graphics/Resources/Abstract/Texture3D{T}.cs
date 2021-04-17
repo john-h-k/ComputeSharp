@@ -3,6 +3,7 @@ using ComputeSharp.__Internals;
 using ComputeSharp.Exceptions;
 using ComputeSharp.Graphics.Commands;
 using ComputeSharp.Graphics.Helpers;
+using ComputeSharp.Graphics.Resources.Enums;
 using ComputeSharp.Interop;
 using Microsoft.Toolkit.Diagnostics;
 using Voltium.Core;
@@ -46,12 +47,6 @@ namespace ComputeSharp.Resources
         private readonly uint bufferSize;
 
         /// <summary>
-        /// The <see cref="D3D12MA_Allocation"/> instance used to retrieve <see cref="d3D12Resource"/>, if any.
-        /// </summary>
-        /// <remarks>This will be <see langword="null"/> if the owning device has <see cref="GraphicsDevice.IsCacheCoherentUMA"/> set.</remarks>
-        private UniquePtr<D3D12MA_Allocation> allocation;
-
-        /// <summary>
         /// Creates a new <see cref="Texture3D{T}"/> instance with the specified parameters.
         /// </summary>
         /// <param name="device">The <see cref="ComputeSharp.GraphicsDevice"/> associated with the current instance.</param>
@@ -92,7 +87,9 @@ namespace ComputeSharp.Resources
 
             this.resource = device.NativeDevice.AllocateTexture(
                 desc,
-                ResourceState.Common);
+                resourceType.InitialResourceState());
+
+            this.resourceState = resourceType.InitialResourceState();
 
             this.descriptor = device.NativeDevice.CreateDescriptor(this.resource, resourceType);
             this.useCopy = resourceType != ResourceType.ReadWrite;

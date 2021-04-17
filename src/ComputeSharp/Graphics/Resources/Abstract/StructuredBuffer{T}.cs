@@ -55,31 +55,20 @@ namespace ComputeSharp.Resources
             }
             else
             {
-                nuint
-                    byteOffset = (nuint)(offset * sizeof(T)),
-                    byteLength = (nuint)(length * sizeof(T));
+                uint
+                    byteOffset = (uint)(offset * sizeof(T)),
+                    byteLength = (uint)(length * sizeof(T));
 
                 var desc = new BufferDesc { Length = (ulong)SizeInBytes, ResourceFlags = ResourceFlags.None };
                 var intermediate = device.AllocateBuffer(desc, MemoryAccess.CpuReadback);
 
-                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
+                var commandList = CommandList.Create();
 
-                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
-                {
-                    Source = this.Resource,
-                    Dest = intermediate,
-                    SourceOffset = byteOffset,
-                    DestOffset = 0,
-                    Length = byteLength
-                };
+                commandList.CopyBuffer(this.Resource, byteOffset, intermediate, 0, byteLength);
 
-                var commands = new CommandBuffer { Buffer = commandBuffer };
+                this.GraphicsDevice.ExecuteCopy(commandList.Buffer).Block();
 
-                this.GraphicsDevice.ExecuteCopy(commands).Block();
-
-                ArrayPool<byte>.Shared.Return(commandBuffer);
-
-                var pointer = this.device.Map(this.Resource);
+                var pointer = this.device.Map(intermediate);
 
                 fixed (void* destinationPointer = &destination)
                 {
@@ -127,27 +116,16 @@ namespace ComputeSharp.Resources
             }
             else
             {
-                ulong
+                uint
                     byteDestinationOffset = (uint)destinationOffset * (uint)sizeof(T),
                     byteOffset = (uint)offset * (uint)sizeof(T),
                     byteLength = (uint)length * (uint)sizeof(T);
 
-                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
+                var commandList = CommandList.Create();
 
-                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
-                {
-                    Source = this.Resource,
-                    Dest = destination.Resource,
-                    SourceOffset = byteOffset,
-                    DestOffset = byteDestinationOffset,
-                    Length = byteLength
-                };
+                commandList.CopyBuffer(this.Resource, byteOffset, destination.Resource, byteDestinationOffset, byteLength);
 
-                var commands = new CommandBuffer { Buffer = commandBuffer };
-
-                this.GraphicsDevice.ExecuteCopy(commands).Block();
-
-                ArrayPool<byte>.Shared.Return(commandBuffer);
+                this.GraphicsDevice.ExecuteCopy(commandList.Buffer).Block();
             }
         }
 
@@ -177,9 +155,9 @@ namespace ComputeSharp.Resources
             }
             else
             {
-                nuint
-                    byteOffset = (nuint)(offset * sizeof(T)),
-                    byteLength = (nuint)(length * sizeof(T));
+                uint
+                    byteOffset = (uint)(offset * sizeof(T)),
+                    byteLength = (uint)(length * sizeof(T));
 
 
                 var desc = new BufferDesc { Length = (ulong)SizeInBytes, ResourceFlags = ResourceFlags.None };
@@ -187,7 +165,7 @@ namespace ComputeSharp.Resources
 
                 fixed (void* sourcePointer = &source)
                 {
-                    var pointer = this.device.Map(this.Resource);
+                    var pointer = this.device.Map(intermediate);
 
                     MemoryHelper.Copy(
                         sourcePointer,
@@ -197,22 +175,11 @@ namespace ComputeSharp.Resources
                         pointer);
                 }
 
-                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
+                var commandList = CommandList.Create();
 
-                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
-                {
-                    Source = intermediate,
-                    Dest = this.Resource,
-                    SourceOffset = byteOffset,
-                    DestOffset = 0,
-                    Length = byteLength
-                };
+                commandList.CopyBuffer(intermediate, 0, Resource, byteOffset, byteLength);
 
-                var commands = new CommandBuffer { Buffer = commandBuffer };
-
-                this.GraphicsDevice.ExecuteCopy(commands).Block();
-
-                ArrayPool<byte>.Shared.Return(commandBuffer);
+                this.GraphicsDevice.ExecuteCopy(commandList.Buffer).Block();
             }
         }
 
@@ -250,27 +217,16 @@ namespace ComputeSharp.Resources
             }
             else
             {
-                ulong
+                uint
                     byteSourceOffset = (uint)sourceOffset * (uint)sizeof(T),
                     byteOffset = (uint)offset * (uint)sizeof(T),
                     byteLength = (uint)length * (uint)sizeof(T);
 
-                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
+                var commandList = CommandList.Create();
 
-                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
-                {
-                    Source = source.Resource,
-                    Dest = this.Resource,
-                    SourceOffset = byteSourceOffset,
-                    DestOffset = byteOffset,
-                    Length = byteLength
-                };
+                commandList.CopyBuffer(source.Resource, byteSourceOffset, Resource, byteOffset, byteLength);
 
-                var commands = new CommandBuffer { Buffer = commandBuffer };
-
-                this.GraphicsDevice.ExecuteCopy(commands).Block();
-
-                ArrayPool<byte>.Shared.Return(commandBuffer);
+                this.GraphicsDevice.ExecuteCopy(commandList.Buffer).Block();
             }
         }
 
@@ -288,22 +244,12 @@ namespace ComputeSharp.Resources
 
             if (!source.IsPaddingPresent)
             {
-                var commandBuffer = ArrayPool<byte>.Shared.Rent(sizeof(CommandBufferCopy));
 
-                Unsafe.As<byte, CommandBufferCopy>(ref commandBuffer[0]) = new CommandBufferCopy
-                {
-                    Source = source.Resource,
-                    Dest = this.Resource,
-                    SourceOffset = 0,
-                    DestOffset = 0,
-                    Length = (ulong)SizeInBytes
-                };
+                var commandList = CommandList.Create();
 
-                var commands = new CommandBuffer { Buffer = commandBuffer };
+                commandList.CopyBuffer(source.Resource, Resource, (uint)SizeInBytes);
 
-                this.GraphicsDevice.ExecuteCopy(commands).Block();
-
-                ArrayPool<byte>.Shared.Return(commandBuffer);
+                this.GraphicsDevice.ExecuteCopy(commandList.Buffer).Block();
             }
             else CopyFromWithCpuBuffer(source);
         }

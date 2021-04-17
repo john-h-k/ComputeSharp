@@ -5,7 +5,6 @@ using ComputeSharp.Core.Helpers;
 using ComputeSharp.Exceptions;
 using ComputeSharp.Graphics.Helpers;
 using ComputeSharp.Graphics.Resources.Enums;
-using ComputeSharp.Graphics.Resources.Interop;
 using ComputeSharp.Resources;
 using ComputeSharp.Resources.Debug;
 using Microsoft.Toolkit.Diagnostics;

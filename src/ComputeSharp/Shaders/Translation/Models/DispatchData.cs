@@ -49,7 +49,7 @@ namespace ComputeSharp.Shaders.Translation.Models
         /// <summary>
         /// Gets a <see cref="ReadOnlySpan{T}"/> with all the captured buffers.
         /// </summary>
-        public ReadOnlySpan<DescriptorSetHandle> Resources => this.resources;
+        public ReadOnlySpan<DescriptorSetHandle> Resources => this.resources.AsSpan(0, this.resourcesCount);
 
         /// <summary>
         /// Gets a <see cref="ReadOnlySpan{T}"/> with the padded data representing all the captured variables.

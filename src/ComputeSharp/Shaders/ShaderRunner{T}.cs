@@ -150,8 +150,6 @@ namespace ComputeSharp.Shaders
                 }
             }
 
-            var count = (uint)shaderData.Loader.Bindings.Length;
-
             // Extract the dispatch data for the shader invocation
             using DispatchData dispatchData = shaderData.Loader.GetDispatchData(device, in shader, x, y, z);
 
@@ -218,7 +216,7 @@ namespace ComputeSharp.Shaders
                 param = RootParameter.CreateDescriptorTable(binding.Type.AsDescriptorType(), binding.Register, 1, binding.Space);
             }
 
-            var rootSig = device.NativeDevice.CreateRootSignature(rootParams, default, RootSignatureFlags.None);
+            var rootSig = device.NativeDevice.CreateRootSignature(rootParams.AsSpan(0, 1 + bindings.Length), default, RootSignatureFlags.None);
 
             var psoDesc = new NativeComputePipelineDesc
             {

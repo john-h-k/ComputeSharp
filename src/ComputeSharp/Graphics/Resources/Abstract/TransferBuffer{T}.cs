@@ -29,12 +29,6 @@ namespace ComputeSharp.Resources
         private readonly T* mappedData;
 
         /// <summary>
-        /// The <see cref="D3D12MA_Allocation"/> instance used to retrieve <see cref="d3D12Resource"/>, if any.
-        /// </summary>
-        /// <remarks>This will be <see langword="null"/> if the owning device has <see cref="GraphicsDevice.IsCacheCoherentUMA"/> set.</remarks>
-        private UniquePtr<D3D12MA_Allocation> allocation;
-
-        /// <summary>
         /// Creates a new <see cref="TransferBuffer{T}"/> instance with the specified parameters.
         /// </summary>
         /// <param name="device">The <see cref="GraphicsDevice"/> associated with the current instance.</param>

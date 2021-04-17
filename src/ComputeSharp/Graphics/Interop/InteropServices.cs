@@ -2,6 +2,8 @@
 using System.ComponentModel;
 using ComputeSharp.Core.Extensions;
 using ComputeSharp.Resources;
+using Voltium.Core.Devices;
+using Voltium.Core.NativeApi;
 
 namespace ComputeSharp.Interop
 {
@@ -23,6 +25,19 @@ namespace ComputeSharp.Interop
     /// </summary>
     public static unsafe class InteropServices
     {
+        public static INativeDevice GetNativeDevice(GraphicsDevice device) => device.NativeDevice;
+
+        public static TextureHandle GetUnderlyingHandle<T>(Texture2D<T> texture)
+            where T : unmanaged 
+            => texture.Resource;
+        public static TextureHandle GetUnderlyingHandle<T>(Texture3D<T> texture)
+            where T : unmanaged
+            => texture.Resource;
+
+        public static BufferHandle GetUnderlyingHandle<T>(Buffer<T> buffer)
+            where T : unmanaged
+            => buffer.Resource;
+
         /// <summary>
         /// Gets the underlying COM object for a given device, as a specified interface. This method invokes
         /// <see href="https://docs.microsoft.com/windows/win32/api/unknwn/nf-unknwn-iunknown-queryinterface(refiid_void)">IUnknown::QueryInterface</see>.
@@ -33,7 +48,8 @@ namespace ComputeSharp.Interop
         /// <exception cref="Win32Exception">Thrown if the <c>IUnknown::QueryInterface</c> call doesn't return <c>S_OK</c>.</exception>
         public static void GetID3D12Device(GraphicsDevice device, Guid* riid, void** ppvObject)
         {
-            device.D3D12Device->QueryInterface(riid, ppvObject).Assert();
+            throw new PlatformNotSupportedException();
+            //device.D3D12Device->QueryInterface(riid, ppvObject).Assert();
         }
 
         /// <summary>
@@ -48,7 +64,8 @@ namespace ComputeSharp.Interop
         public static void GetID3D12Resource<T>(Buffer<T> buffer, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            buffer.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
+            throw new PlatformNotSupportedException();
+            //buffer.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
         }
 
         /// <summary>
@@ -63,7 +80,8 @@ namespace ComputeSharp.Interop
         public static void GetID3D12Resource<T>(Texture2D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
+            throw new PlatformNotSupportedException();
+            //texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
         }
 
         /// <summary>
@@ -78,7 +96,8 @@ namespace ComputeSharp.Interop
         public static void GetID3D12Resource<T>(Texture3D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
+            throw new PlatformNotSupportedException();
+            //texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
         }
 
         /// <summary>
@@ -93,7 +112,8 @@ namespace ComputeSharp.Interop
         public static void GetID3D12Resource<T>(TransferBuffer<T> buffer, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            buffer.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
+            throw new PlatformNotSupportedException();
+            //buffer.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
         }
 
         /// <summary>
@@ -108,7 +128,8 @@ namespace ComputeSharp.Interop
         public static void GetID3D12Resource<T>(TransferTexture2D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
+            throw new PlatformNotSupportedException();
+            //texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
         }
 
         /// <summary>
@@ -123,7 +144,8 @@ namespace ComputeSharp.Interop
         public static void GetID3D12Resource<T>(TransferTexture3D<T> texture, Guid* riid, void** ppvObject)
             where T : unmanaged
         {
-            texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
+            throw new PlatformNotSupportedException();
+            //texture.D3D12Resource->QueryInterface(riid, ppvObject).Assert();
         }
 
         /// <summary>

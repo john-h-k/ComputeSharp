@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using ComputeSharp.Core.Extensions;
-using ComputeSharp.Graphics.Extensions;
 using Microsoft.Toolkit.Diagnostics;
 using TerraFX.Interop;
 using HRESULT = System.Int32;
@@ -45,7 +44,7 @@ namespace ComputeSharp.Graphics.Helpers
 
             DXGI_ADAPTER_DESC1 dxgiDescription1;
 
-            _ = TryGetDefaultDevice(null, null, &dxgiDescription1) || TryGetWarpDevice(null, null, &dxgiDescription1);
+            _ = TryGetDefaultDevice(null, &dxgiDescription1) || TryGetWarpDevice(null, &dxgiDescription1);
 
             return Luid.FromLUID(dxgiDescription1.AdapterLuid);
         }
@@ -57,14 +56,14 @@ namespace ComputeSharp.Graphics.Helpers
         /// <exception cref="NotSupportedException">Thrown when a default device is not available.</exception>
         private static unsafe GraphicsDevice GetDefaultDevice()
         {
-            using ComPtr<IDXGIAdapter1> d3D12Device = default;
+            using ComPtr<IDXGIAdapter1> dxgiAdapter = default;
 
             DXGI_ADAPTER_DESC1 dxgiDescription1;
 
-            if (TryGetDefaultDevice(&d3D12Device, &dxgiDescription1) ||
-                TryGetWarpDevice(&d3D12Device, &dxgiDescription1))
+            if (TryGetDefaultDevice(&dxgiAdapter, &dxgiDescription1) ||
+                TryGetWarpDevice(&dxgiAdapter, &dxgiDescription1))
             {
-                return GetOrCreateDevice(d3D12Device.Get(), dxgiAdapter.Get(), &dxgiDescription1);
+                return GetOrCreateDevice(dxgiAdapter.Get(), &dxgiDescription1);
             }
 
             return ThrowHelper.ThrowNotSupportedException<GraphicsDevice>("Failed to retrieve the default device.");

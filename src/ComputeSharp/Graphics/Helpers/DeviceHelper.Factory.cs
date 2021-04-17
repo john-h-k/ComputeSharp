@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using ComputeSharp.Core.Extensions;
+using System.Collections.Generic;
 #if DEBUG
-using ComputeSharp.Graphics.Extensions;
 using TerraFX.Interop;
 using Voltium.Core.Devices;
 #endif
@@ -38,7 +38,7 @@ namespace ComputeSharp.Graphics.Helpers
 
                 if (!DevicesCache.TryGetValue(luid, out GraphicsDevice? device))
                 {
-                    device = new GraphicsDevice(new D3D12NativeDevice(D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0, adapter.As<IDXGIAdapter>().Move()), dxgiDescription1);
+                    device = new GraphicsDevice(new D3D12NativeDevice(D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0, adapter.Move()), dxgiDescription1);
 
                     DevicesCache.Add(luid, device);
 

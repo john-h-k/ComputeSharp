@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\Voltium\sources\Voltium.Core\Voltium.Core.csproj" />
     <ProjectReference Include="..\..\src\ComputeSharp\ComputeSharp.csproj" />
     <ProjectReference Include="..\..\src\ComputeSharp.SourceGenerators\ComputeSharp.SourceGenerators.csproj"
                       OutputItemType="Analyzer"

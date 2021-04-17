@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using ComputeSharp.Core.Extensions;
-using ComputeSharp.Graphics.Extensions;
 using ComputeSharp.Interop;
 using TerraFX.Interop;
 using HRESULT = System.Int32;
@@ -127,7 +126,7 @@ namespace ComputeSharp.Graphics.Helpers
 
                             HRESULT createDeviceResult = FX.D3D12CreateDevice(
                                 dxgiAdapter1.AsIUnknown().Get(),
-                                D3D_FEATURE_LEVEL_11_0,
+                                D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0,
                                 FX.__uuidof<ID3D12Device>(),
                                 null);
 
@@ -160,7 +159,7 @@ namespace ComputeSharp.Graphics.Helpers
 
                             HRESULT createDeviceResult = FX.D3D12CreateDevice(
                                 dxgiAdapter1.AsIUnknown().Get(),
-                                D3D_FEATURE_LEVEL_11_0,
+                                D3D_FEATURE_LEVEL.D3D_FEATURE_LEVEL_11_0,
                                 FX.__uuidof<ID3D12Device>(),
                                 null);
 
@@ -169,8 +168,7 @@ namespace ComputeSharp.Graphics.Helpers
                             {
                                 this.graphicsDevice = GetOrCreateDevice(dxgiAdapter1.Move(), &dxgiDescription1);
 
-                                    return true;
-                                }
+                                return true;
                             }
                         }
                     }

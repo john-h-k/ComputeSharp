@@ -5,14 +5,16 @@
     <OutputPath>bin\Release</OutputPath>
     <!--<DocumentationFile>ComputeSharp.xml</DocumentationFile>-->
     <Description>ComputeSharp</Description>
+    <NoWarn>AD0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.19041.1" />
+    <PackageReference Include="Microsoft.Toolkit.Diagnostics" Version="7.0.0" />
+    <ProjectReference Include="..\..\..\Voltium\sources\Voltium.Core\Voltium.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ComputeSharp.Shaders\ComputeSharp.Shaders.csproj" />
+    <Folder Include="Graphics\Resources\Interop\" />
   </ItemGroup>
 
 </Project>

@@ -79,7 +79,7 @@ namespace ComputeSharp.Shaders.Translation
         private void InitializeDispatchDataLoader()
         {
             // Get the generated data loader
-            Type[] argumentTypes = new[] { typeof(GraphicsDevice), typeof(T).MakeByRefType(), typeof(ulong).MakeByRefType(), typeof(byte).MakeByRefType() };
+            Type[] argumentTypes = new[] { typeof(GraphicsDevice), typeof(T).MakeByRefType(), typeof(DescriptorSetHandle).MakeByRefType(), typeof(byte).MakeByRefType() };
             Type type = typeof(T).Assembly.GetType("ComputeSharp.__Internals.DispatchDataLoader")!;
             MethodInfo method = type.GetMethod("LoadDispatchData", argumentTypes)!;
 

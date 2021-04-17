@@ -2,9 +2,11 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using ComputeSharp.Exceptions;
+using ComputeSharp.Graphics.Helpers;
 using ComputeSharp.Graphics.Resources.Enums;
 using ComputeSharp.Interop;
 using Microsoft.Toolkit.Diagnostics;
+using Voltium.Core;
 using Voltium.Core.Devices;
 using Voltium.Core.Memory;
 using Voltium.Core.NativeApi;
@@ -14,7 +16,7 @@ namespace ComputeSharp.Resources
 {
     internal static class INativeDeviceExtensions
     {
-        public static DescriptorSetHandle CreateDescriptor(this INativeDevice device, BufferHandle buffer, ResourceType type)
+        public static DescriptorSetHandle CreateDescriptor(this INativeDevice device, BufferHandle buffer, ResourceType type, in BufferViewDesc desc)
         {
             var view = device.CreateViewSet(1);
             var descriptor = device.CreateDescriptorSet(type switch
@@ -24,7 +26,7 @@ namespace ComputeSharp.Resources
                 ResourceType.ReadWrite => DescriptorType.WritableStructuredBuffer,
                 _ => 0
             }, 1);
-            _ = device.CreateView(view, 0, buffer);
+            device.CreateView(view, 0, buffer, desc);
             device.UpdateDescriptors(view, 0, descriptor, 0, 1);
             device.DisposeViewSet(view);
             return descriptor;
@@ -66,12 +68,6 @@ namespace ComputeSharp.Resources
         protected readonly nint SizeInBytes;
 
         /// <summary>
-        /// The <see cref="D3D12MA_Allocation"/> instance used to retrieve <see cref="d3D12Resource"/>, if any.
-        /// </summary>
-        /// <remarks>This will be <see langword="null"/> if the owning device has <see cref="GraphicsDevice.IsCacheCoherentUMA"/> set.</remarks>
-        private UniquePtr<D3D12MA_Allocation> allocation;
-
-        /// <summary>
         /// Creates a new <see cref="Buffer{T}"/> instance with the specified parameters.
         /// </summary>
         /// <param name="device">The <see cref="GraphicsDevice"/> associated with the current instance.</param>
@@ -94,7 +90,7 @@ namespace ComputeSharp.Resources
             }
 
             if (TypeInfo<T>.IsDoubleOrContainsDoubles &&
-                device.D3D12Device->CheckFeatureSupport<D3D12_FEATURE_DATA_D3D12_OPTIONS>(D3D12_FEATURE_D3D12_OPTIONS).DoublePrecisionFloatShaderOps == 0)
+                !device.NativeDevice.Info.DoubleSupport)
             {
                 UnsupportedDoubleOperationsException.Throw<T>();
             }
@@ -105,8 +101,17 @@ namespace ComputeSharp.Resources
 
             var desc = new BufferDesc { Length = (ulong)SizeInBytes, ResourceFlags = resourceType.AsResourceFlags() };
 
+            var viewDesc = new BufferViewDesc 
+            {
+                Format = DataFormat.Unknown,
+                Offset = 0,
+                Count = (uint)length, 
+                IsRaw = false,
+                Stride = (uint)sizeof(T)
+            };
+
             this.resource = device.NativeDevice.AllocateBuffer(desc, resourceType.AsMemoryAccess());
-            this.descriptor = device.NativeDevice.CreateDescriptor(this.resource, resourceType);
+            this.descriptor = device.NativeDevice.CreateDescriptor(this.resource, resourceType, viewDesc);
         }
 
         /// <summary>

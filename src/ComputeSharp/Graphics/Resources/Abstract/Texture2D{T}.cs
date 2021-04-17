@@ -17,7 +17,7 @@ using ResourceType = ComputeSharp.Graphics.Resources.Enums.ResourceType;
 
 namespace ComputeSharp.Resources
 {
-    internal struct TextureFootprint
+    public struct TextureFootprint
     {
         public DataFormat Format;
         public uint Width, Height, Depth;
@@ -51,12 +51,6 @@ namespace ComputeSharp.Resources
 
         private readonly TextureFootprint footprint;
         private readonly uint bufferSize;
-
-        /// <summary>
-        /// The <see cref="D3D12MA_Allocation"/> instance used to retrieve <see cref="d3D12Resource"/>, if any.
-        /// </summary>
-        /// <remarks>This will be <see langword="null"/> if the owning device has <see cref="GraphicsDevice.IsCacheCoherentUMA"/> set.</remarks>
-        private UniquePtr<D3D12MA_Allocation> allocation;
 
         /// <summary>
         /// Creates a new <see cref="Texture2D{T}"/> instance with the specified parameters.
@@ -95,7 +89,9 @@ namespace ComputeSharp.Resources
 
             this.resource = this.device.AllocateTexture(
                 desc,
-                resourceType.InitialResourceState());
+                 resourceType.InitialResourceState());
+
+            this.resourceState = resourceType.InitialResourceState();
 
             this.descriptor = device.NativeDevice.CreateDescriptor(this.resource, resourceType);
             this.useCopy = resourceType != ResourceType.ReadWrite;
